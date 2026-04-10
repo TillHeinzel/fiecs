@@ -1,5 +1,7 @@
-import { Archetype, LinkType, reverseLinkType } from "./Archetype";
+import { Archetype } from "./Archetype";
 import { Entity, Id } from "./EntityData";
+import { LinkType } from "./Hooks";
+import { reverseLinkType } from "./Links";
 
 export class ECSStorage {
   emptyArchetype: Archetype = new Archetype(new Set());
@@ -79,7 +81,7 @@ export class ECSStorage {
     if (toAdd.size === 0 && toRemove.size === 0) return;
 
     const lookupCheapLink = () => {
-      return entity.archetype.getLink(link.type, link.id);
+      return entity.archetype.links.get(link.type, link.id);
     };
 
     const establishNewLink = () => {
@@ -87,9 +89,9 @@ export class ECSStorage {
         addAll(removeAll(entity.archetype.components, toRemove), toAdd),
       );
 
-      entity.archetype.setLink(link.type, link.id, newArchetype);
+      entity.archetype.links.add(link.type, link.id, newArchetype);
       if (toAdd.size + toRemove.size === 1) {
-        newArchetype.setLink(
+        newArchetype.links.add(
           reverseLinkType(link.type),
           link.id,
           entity.archetype,
@@ -110,7 +112,7 @@ export class ECSStorage {
 
       if (componentsToRemove.size === 1) {
         const component = componentsToRemove.values().next().value!;
-        const preppedLink = archetype.getLink(LinkType.Remove, component);
+        const preppedLink = archetype.links.get(LinkType.Remove, component);
         if (preppedLink) return preppedLink;
       }
 
@@ -156,7 +158,7 @@ export class ECSStorage {
   getLinkCount() {
     return this.archetypes
       .keys()
-      .reduce((count, archetype) => count + archetype.getLinkCount(), 0);
+      .reduce((count, archetype) => count + archetype.links.count(), 0);
   }
 }
 

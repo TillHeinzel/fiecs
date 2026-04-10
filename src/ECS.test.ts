@@ -1910,9 +1910,10 @@ describe("RelationshipHasNoData trait", () => {
 
     const e = ecs.createEntity();
     const target = ecs.createComponent(z.string());
+    target.setName("some target");
 
     expect(() => e.set(relationship, target, "some data")).toThrow(
-      'Relationship "some relationship" cannot have data',
+      '"(some relationship, some target)" has no data to be set',
     );
   });
 
@@ -1930,7 +1931,7 @@ describe("RelationshipHasNoData trait", () => {
     expect(e.get(relationship, target)).toBeUndefined();
   });
 
-  test("A relationship marked as RelationshipHasNoData cannot have data can target non-default initializable components", () => {
+  test("A relationship marked as RelationshipHasNoData cannot have data & can thus target non-default initializable components", () => {
     const ecs = new ECS();
 
     const relationship = ecs.createTag("some relationship");

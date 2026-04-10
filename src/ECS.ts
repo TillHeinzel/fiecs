@@ -1,30 +1,32 @@
 import { Backend } from "./Backend";
+import { builtinTraits } from "./builtinTraits";
 import { Entity, Pair } from "./EntityData";
 
 export class ECS {
   #backend: Backend = new Backend();
 
-  builtin = {
-    Trait: new EntityHandle(this.#backend.builtin.Trait, this.#backend),
-    Relationship: new EntityHandle(
-      this.#backend.builtin.Relationship,
-      this.#backend,
-    ),
-    RelationshipHasNoData: new EntityHandle(
-      this.#backend.builtin.RelationshipHasNoData,
-      this.#backend,
-    ),
-    With: new EntityHandle(this.#backend.builtin.With, this.#backend),
-    Acyclic: new EntityHandle(this.#backend.builtin.Acyclic, this.#backend),
-    Singleton: new EntityHandle(this.#backend.builtin.Singleton, this.#backend),
-    Symmetric: new EntityHandle(this.#backend.builtin.Symmetric, this.#backend),
-    Target: new EntityHandle(this.#backend.builtin.Target, this.#backend),
-    TargetMustBeDefaultInitializable: new EntityHandle(
-      this.#backend.builtin.TargetMustBeDefaultInitializable,
-      this.#backend,
-    ),
-    Exclusive: new EntityHandle(this.#backend.builtin.Exclusive, this.#backend),
-  };
+  builtin = (() => {
+    const traits = builtinTraits(this.#backend);
+
+    return {
+      Trait: new EntityHandle(traits.Trait, this.#backend),
+      Relationship: new EntityHandle(traits.Relationship, this.#backend),
+      RelationshipHasNoData: new EntityHandle(
+        traits.RelationshipHasNoData,
+        this.#backend,
+      ),
+      With: new EntityHandle(traits.With, this.#backend),
+      Acyclic: new EntityHandle(traits.Acyclic, this.#backend),
+      Singleton: new EntityHandle(traits.Singleton, this.#backend),
+      Symmetric: new EntityHandle(traits.Symmetric, this.#backend),
+      Target: new EntityHandle(traits.Target, this.#backend),
+      TargetMustBeDefaultInitializable: new EntityHandle(
+        traits.TargetMustBeDefaultInitializable,
+        this.#backend,
+      ),
+      Exclusive: new EntityHandle(traits.Exclusive, this.#backend),
+    };
+  })();
 
   startStatistics() {
     this.#backend.storage.startStatistics();
@@ -111,11 +113,12 @@ export class ECS {
     component: ComponentHandle<T>,
     newVal: InferType<T>,
   ): void {
-    this.#backend.add(component.data, this.#backend.builtin.Singleton);
+    this.#backend.add(component.data, this.builtin.Singleton.data);
     this.#backend.set(component.data, component.data, newVal);
   }
 
   _debugBackendOperationIsDirty() {
+    // @ts-expect-error // exposing for testing purposes, not part of public API
     return this.#backend.operation.isDirty();
   }
 }

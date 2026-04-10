@@ -1,10 +1,11 @@
 import { Archetype } from "./Archetype";
+import { Hooks } from "./Hooks";
 
 export type Id = Entity | Pair;
 
 export class Entity {
   name?: string;
-  isAlive: boolean;
+  _isAlive: boolean;
 
   archetype: Archetype;
   componentData: Map<Id, unknown>;
@@ -20,20 +21,26 @@ export class Entity {
   backLinksTarget?: Map<Entity, Pair>;
 
   initializer?: Initializer;
+  relationshipHasNoData?: boolean;
+
+  hooks?: Hooks;
 
   constructor(archetype: Archetype) {
-    this.isAlive = true;
+    this._isAlive = true;
     this.componentData = new Map();
     this.archetype = archetype;
   }
+}
 
-  getName() {
-    return this.name;
+export function getName(id: Id): string | undefined {
+  if (isPair(id)) {
+    return `(${id.type.name}, ${id.target.name})`;
   }
+  return id.name;
+}
 
-  has(component: Id) {
-    return this.archetype.components.has(component);
-  }
+export function has(e: Entity, component: Id) {
+  return e.archetype.components.has(component);
 }
 
 export type Initializer = {
@@ -56,19 +63,23 @@ export class Pair {
       if (type.initializer !== undefined && target.initializer === undefined) {
         return type.initializer;
       }
-      if (type.initializer === undefined && target.initializer !== undefined) {
+      if (
+        type.initializer === undefined &&
+        target.initializer !== undefined &&
+        !type.relationshipHasNoData
+      ) {
         return target.initializer;
       }
-      if (type.initializer !== undefined && target.initializer !== undefined) {
+      if (
+        type.initializer !== undefined &&
+        target.initializer !== undefined &&
+        !type.relationshipHasNoData
+      ) {
         return type.initializer;
       }
       // type.initializer === undefined && target.initializer === undefined
       return undefined;
     })();
-  }
-
-  getName() {
-    return `(${this.type.getName()}, ${this.target.getName()})`;
   }
 }
 
