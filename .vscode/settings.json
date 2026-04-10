@@ -1,0 +1,32 @@
+{
+  "files.exclude": {
+    ".next": true,
+    ".storybook": true,
+    ".vscode": true,
+    "*.json": true,
+    "*.md": true,
+    "*.mjs": true,
+    "*.ts": true,
+    "**/.DS_Store": true,
+    "**/.git": true,
+    "**/.hg": true,
+    "**/.svn": true,
+    "**/Thumbs.db": true,
+    "config/config": true,
+    "config/public": true,
+    "config/src": true,
+    "LICENSE": true,
+    "node_modules": true
+  },
+  "cSpell.words": ["prefault"],
+  "files.watcherExclude": {
+    "config/config": true,
+    "config/public": true,
+    "config/src": true
+  },
+  "explorer.autoRevealExclude": {
+    "config/config": true,
+    "config/public": true,
+    "config/src": true
+  }
+}

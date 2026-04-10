@@ -1,0 +1,22 @@
+{
+  "name": "eminence",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "eslint",
+    "unit": "vitest --project unit --ui --api.port 51204"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@vitest/coverage-v8": "^4.0.12",
+    "@vitest/ui": "^4.0.12",
+    "eslint": "^9",
+    "jest-extended": "^7.0.0",
+    "playwright": "^1.56.1",
+    "typescript": "^5",
+    "typescript-eslint": "^8.49.0",
+    "vitest": "^4.0.12",
+    "zod": "^4.1.12"
+  }
+}

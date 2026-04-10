@@ -1,0 +1,24 @@
+{
+  "editor.formatOnSave": true,
+  "importSorter.generalConfiguration.sortOnBeforeSave": true,
+  "importSorter.importStringConfiguration.maximumNumberOfImportExpressionsPerLine.type": "newLineEachExpressionAfterCountLimitExceptIfOnlyOne",
+  "importSorter.importStringConfiguration.maximumNumberOfImportExpressionsPerLine.count": 80,
+  "importSorter.importStringConfiguration.tabSize": 2,
+  "importSorter.importStringConfiguration.quoteMark": "double",
+  "importSorter.sortConfiguration.customOrderingRules.rules": [
+    {
+      "type": "importMember",
+      "regex": "^$",
+      "orderLevel": 5,
+      "disableSort": true
+    },
+    {
+      "regex": "#/",
+      "orderLevel": 30
+    },
+    {
+      "regex": "[.]",
+      "orderLevel": 40
+    }
+  ]
+}

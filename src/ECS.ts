@@ -1,0 +1,400 @@
+import { Backend } from "./Backend";
+import { Entity, Pair } from "./EntityData";
+
+export class ECS {
+  #backend: Backend = new Backend();
+
+  builtin = {
+    Trait: new EntityHandle(this.#backend.builtin.Trait, this.#backend),
+    Relationship: new EntityHandle(
+      this.#backend.builtin.Relationship,
+      this.#backend,
+    ),
+    RelationshipHasNoData: new EntityHandle(
+      this.#backend.builtin.RelationshipHasNoData,
+      this.#backend,
+    ),
+    With: new EntityHandle(this.#backend.builtin.With, this.#backend),
+    Acyclic: new EntityHandle(this.#backend.builtin.Acyclic, this.#backend),
+    Singleton: new EntityHandle(this.#backend.builtin.Singleton, this.#backend),
+    Symmetric: new EntityHandle(this.#backend.builtin.Symmetric, this.#backend),
+    Target: new EntityHandle(this.#backend.builtin.Target, this.#backend),
+    TargetMustBeDefaultInitializable: new EntityHandle(
+      this.#backend.builtin.TargetMustBeDefaultInitializable,
+      this.#backend,
+    ),
+    Exclusive: new EntityHandle(this.#backend.builtin.Exclusive, this.#backend),
+  };
+
+  startStatistics() {
+    this.#backend.storage.startStatistics();
+  }
+
+  stopStatistics() {
+    this.#backend.storage.stopStatistics();
+  }
+
+  getStatistics() {
+    return this.#backend.storage.getStatistics();
+  }
+
+  getArchetypeCount() {
+    return this.#backend.storage.getArchetypeCount();
+  }
+
+  getArchetypeGraphEdgeCount() {
+    return this.#backend.storage.getLinkCount();
+  }
+
+  createEntity() {
+    return new EntityHandle(this.#backend.createEntity(), this.#backend);
+  }
+
+  createNamedEntity(name: string) {
+    return new EntityHandle(this.#backend.createEntity(name), this.#backend);
+  }
+
+  createTag(name?: string) {
+    return new EntityHandle(this.#backend.createTag(name), this.#backend);
+  }
+
+  createComponent<T extends ComponentDataSchema>(schema: T) {
+    return new ComponentHandle<T>(
+      this.#backend.createComponent((val: unknown) => schema.parse(val)),
+      this.#backend,
+    );
+  }
+
+  createRelationshipTag(relationship: EntityHandle, target: EntityHandle) {
+    return new RelationshipTagHandle(
+      this.#backend.makeExplicitRelationship(relationship.data, target.data),
+      this.#backend,
+    );
+  }
+
+  createRelationshipComponent<T extends ComponentDataSchema>(
+    relationship: ComponentHandle<T>,
+    target: EntityHandle,
+  ) {
+    return new RelationshipComponentHandle<T>(
+      this.#backend.makeExplicitRelationship(relationship.data, target.data),
+      this.#backend,
+    );
+  }
+
+  lookupEntity(name: string) {
+    const entityData = this.#backend.lookupEntity(name);
+    return entityData ? new EntityHandle(entityData, this.#backend) : undefined;
+  }
+
+  removeFromAll(component: AnyComponentHandle): void;
+  removeFromAll(
+    component: AnyComponentHandle,
+    target: AnyComponentHandle,
+  ): void;
+  removeFromAll(component: AnyRelationshipHandle): void;
+  removeFromAll(component: AnyIdHandle, target?: AnyComponentHandle) {
+    this.#backend.removeFromAll(component.data, target?.data);
+  }
+
+  destructAllWith(component: AnyComponentHandle): void;
+  destructAllWith(
+    component: AnyComponentHandle,
+    target: AnyComponentHandle,
+  ): void;
+  destructAllWith(component: AnyRelationshipHandle): void;
+  destructAllWith(component: AnyIdHandle, target?: AnyComponentHandle) {
+    this.#backend.destructAllWith(component.data, target?.data);
+  }
+
+  set<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+    newVal: InferType<T>,
+  ): void {
+    this.#backend.add(component.data, this.#backend.builtin.Singleton);
+    this.#backend.set(component.data, component.data, newVal);
+  }
+
+  _debugBackendOperationIsDirty() {
+    return this.#backend.operation.isDirty();
+  }
+}
+
+export class EntityHandle {
+  data: Entity;
+  #backend: Backend;
+
+  constructor(data: Entity, backend: Backend) {
+    this.data = data;
+    this.#backend = backend;
+  }
+
+  getName() {
+    return this.#backend.getName(this.data);
+  }
+
+  setName(name: string) {
+    this.#backend.setName(this.data, name);
+  }
+
+  isSameEntityAs(other: EntityHandle) {
+    return this.data === other.data;
+  }
+
+  isAlive() {
+    return this.#backend.isAlive(this.data);
+  }
+
+  destruct() {
+    this.#backend.destruct(this.data);
+  }
+
+  clear() {
+    this.#backend.clear(this.data);
+  }
+
+  has(component: AnyIdHandle): boolean;
+  has(relationship: AnyComponentHandle, target: EntityHandle): boolean;
+  has(componentOrRelationship: AnyIdHandle, target?: EntityHandle): boolean {
+    if (target === undefined) {
+      return this.#backend.has(this.data, componentOrRelationship.data);
+    }
+    if (
+      componentOrRelationship instanceof ComponentHandle ||
+      componentOrRelationship instanceof EntityHandle
+    ) {
+      return this.#backend.has(
+        this.data,
+        this.#backend.relationship(componentOrRelationship.data, target.data),
+      );
+    }
+
+    throw new Error("Invalid arguments for has");
+  }
+
+  remove(id: AnyIdHandle): void;
+  remove(relationship: AnyComponentHandle, target: EntityHandle): void;
+  remove(component: AnyIdHandle, target?: EntityHandle) {
+    if (target === undefined) {
+      this.#backend.remove(this.data, component.data);
+      return;
+    }
+    if (
+      component instanceof ComponentHandle ||
+      component instanceof EntityHandle
+    ) {
+      this.#backend.remove(
+        this.data,
+        this.#backend.relationship(component.data, target.data),
+      );
+      return;
+    }
+
+    throw new Error("Invalid arguments for remove");
+  }
+
+  add(component: AnyComponentHandle): void;
+  add(fullRelationship: AnyRelationshipHandle): void;
+  add(relationship: AnyComponentHandle, target: EntityHandle): void;
+  add(first: AnyIdHandle, second?: EntityHandle) {
+    if (first.data instanceof Entity && second === undefined) {
+      this.#backend.add(this.data, first.data);
+    }
+    if (first.data instanceof Entity && second !== undefined) {
+      this.#backend.add(
+        this.data,
+        this.#backend.relationship(first.data, second.data),
+      );
+    }
+    if (first.data instanceof Pair && second === undefined) {
+      this.#backend.add(this.data, first.data);
+    }
+    if (first.data instanceof Pair && second !== undefined) {
+      throw new Error(
+        "Cannot use a concrete relationship as relationship for new pairs",
+      );
+    }
+  }
+
+  set<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+    newVal: InferType<T>,
+  ): void;
+  set<T extends ComponentDataSchema>(
+    explicitRelationship: RelationshipComponentHandle<T>,
+    newVal: InferType<T>,
+  ): void;
+  set<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+    target: EntityHandle,
+    newVal: InferType<T>,
+  ): void;
+  set<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
+    component: ComponentHandle<T1>,
+    target: ComponentHandle<T2>,
+    newVal: InferType<T1>,
+  ): void;
+  set<T extends ComponentDataSchema>(
+    component: EntityHandle,
+    target: ComponentHandle<T>,
+    newVal: InferType<T>,
+  ): void;
+  set<T extends ComponentDataSchema>(
+    first: EntityHandle | ComponentHandle<T> | RelationshipComponentHandle<T>,
+    second: AnyComponentHandle | InferType<T>,
+    third?: InferType<T>,
+  ) {
+    if (
+      first instanceof ComponentHandle &&
+      !(second instanceof EntityHandle) &&
+      third === undefined
+    ) {
+      this.#backend.set(this.data, first.data, second);
+      return;
+    }
+    if (first instanceof RelationshipComponentHandle && third === undefined) {
+      this.#backend.set(this.data, first.data, second);
+      return;
+    }
+    if (
+      (first instanceof EntityHandle || first instanceof ComponentHandle) &&
+      (second instanceof EntityHandle || second instanceof ComponentHandle)
+    ) {
+      this.#backend.set(
+        this.data,
+        this.#backend.relationship(first.data, second.data),
+        third,
+      );
+      return;
+    }
+
+    throw new Error("Invalid arguments for setData");
+  }
+
+  get<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+  ): InferType<T> | undefined;
+  get<T extends ComponentDataSchema>(
+    component: RelationshipComponentHandle<T>,
+  ): InferType<T> | undefined;
+  get<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+    target: EntityHandle,
+  ): InferType<T> | undefined;
+  get<T extends ComponentDataSchema>(
+    component: EntityHandle,
+    target: ComponentHandle<T>,
+  ): InferType<T> | undefined;
+  get<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
+    component: ComponentHandle<T1>,
+    target: ComponentHandle<T2>,
+  ): InferType<T1> | undefined;
+  get(
+    first:
+      | AnyComponentHandle
+      | RelationshipComponentHandle<ComponentDataSchema>,
+    second?: AnyComponentHandle,
+  ) {
+    if (first instanceof ComponentHandle && second === undefined) {
+      return this.#backend.get(this.data, first.data);
+    }
+    if (first instanceof RelationshipComponentHandle && second === undefined) {
+      return this.#backend.get(this.data, first.data);
+    }
+    if (first instanceof ComponentHandle && second instanceof EntityHandle) {
+      return this.#backend.get(
+        this.data,
+        this.#backend.relationship(first.data, second.data),
+      );
+    }
+    if (first instanceof EntityHandle && second instanceof ComponentHandle) {
+      return this.#backend.get(
+        this.data,
+        this.#backend.relationship(first.data, second.data),
+      );
+    }
+    if (first instanceof ComponentHandle && second instanceof ComponentHandle) {
+      return this.#backend.get(
+        this.data,
+        this.#backend.relationship(first.data, second.data),
+      );
+    }
+
+    throw new Error("Invalid arguments for getData");
+  }
+
+  hasAnyRelationship(relationship: AnyComponentHandle) {
+    return this.#backend.hasAnyRelationship(this.data, relationship.data);
+  }
+
+  getRelationshipTargets(relationship: AnyComponentHandle): Set<EntityHandle> {
+    return new Set(
+      this.#backend
+        .getRelationshipTargets(this.data, relationship.data)
+        .entries()
+        .map(([target]) => new EntityHandle(target, this.#backend)),
+    );
+  }
+
+  getARelationshipTarget(
+    relationship: AnyComponentHandle,
+  ): EntityHandle | undefined {
+    const target = this.#backend.getARelationshipTarget(
+      this.data,
+      relationship.data,
+    );
+
+    return target ? new EntityHandle(target, this.#backend) : undefined;
+  }
+}
+
+export class ComponentHandle<
+  // needed for type inference when using the handle, even if not used directly here
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  T extends ComponentDataSchema,
+> extends EntityHandle {
+  constructor(
+    public _data: Entity,
+    backend: Backend,
+  ) {
+    super(_data, backend);
+  }
+}
+
+export class RelationshipTagHandle {
+  data: Pair;
+  // eslint-disable-next-line no-unused-private-class-members
+  #backend: Backend;
+
+  constructor(_data: Pair, backend: Backend) {
+    this.data = _data;
+    this.#backend = backend;
+  }
+}
+
+// needed for type inference when using the handle, even if not used directly here
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export class RelationshipComponentHandle<T extends ComponentDataSchema> {
+  data: Pair;
+  // eslint-disable-next-line no-unused-private-class-members
+  #backend: Backend;
+
+  constructor(_data: Pair, backend: Backend) {
+    this.data = _data;
+    this.#backend = backend;
+  }
+}
+
+type AnyComponentHandle = EntityHandle | ComponentHandle<ComponentDataSchema>;
+
+type AnyRelationshipHandle =
+  | RelationshipTagHandle
+  | RelationshipComponentHandle<ComponentDataSchema>;
+
+type AnyIdHandle = AnyComponentHandle | AnyRelationshipHandle;
+
+type ComponentDataSchema = {
+  parse(val: unknown): unknown;
+};
+
+type InferType<T extends ComponentDataSchema> = ReturnType<T["parse"]>;
