@@ -1,4 +1,4 @@
-import { Entity, getRelationshipTargets } from "./EntityData";
+import { Entity, getRelationshipTargets } from "./Core/EntityData";
 
 export function traverseRelationship(
   relationship: Entity,

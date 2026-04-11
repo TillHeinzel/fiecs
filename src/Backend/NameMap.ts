@@ -1,4 +1,4 @@
-import { Entity } from "./EntityData";
+import { Entity } from "./Core/EntityData";
 
 export class NameMap {
   #nameMap: Map<string, Entity> = new Map();

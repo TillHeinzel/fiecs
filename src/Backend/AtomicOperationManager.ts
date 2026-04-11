@@ -1,6 +1,6 @@
-import { Entity, Id } from "./EntityData";
-import { LinkType } from "./Hooks";
-import { ECSStorage } from "./Storage";
+import { Entity, Id } from "./Core/EntityData";
+import { LinkType } from "./Core/Hooks";
+import { ECSStorage } from "./Core/Storage";
 
 export class AtomicOperationManager {
   storage: ECSStorage;

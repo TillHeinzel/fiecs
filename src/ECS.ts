@@ -1,6 +1,5 @@
-import { Backend } from "./Backend";
+import { Backend, Entity, Pair } from "./Backend";
 import { builtinTraits } from "./builtinTraits";
-import { Entity, Pair } from "./EntityData";
 
 export class ECS {
   #backend: Backend = new Backend();

@@ -1,5 +1,5 @@
-import { Archetype } from "./Archetype";
-import { Entity, isPair } from "./EntityData";
+import { Archetype } from "./Core/Archetype";
+import { Entity, isPair } from "./Core/EntityData";
 
 export type Query = {
   forEachArchetype(callback: (archetype: Archetype) => void): void;

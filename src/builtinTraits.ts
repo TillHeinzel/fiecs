@@ -1,5 +1,4 @@
-import { Backend } from "./Backend";
-import { ensureRelationshipId } from "./ensureRelationshipId";
+import { Backend, Operation, Phase } from "./Backend";
 import {
   canDefaultInitialize,
   getARelationshipPair,
@@ -7,10 +6,13 @@ import {
   getRelationshipTargets,
   has,
   isInUseAsComponent,
-} from "./EntityData";
-import { Hooks, Operation, Phase } from "./Hooks";
-import { makeQuery, wildcard } from "./Query";
-import { down, traverseRelationship } from "./RelationshipTraversal";
+} from "./Backend/Core/EntityData";
+import { Hooks } from "./Backend/Core/Hooks";
+import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
+import { makeQuery, wildcard } from "./Backend/Query";
+import { down, traverseRelationship } from "./Backend/RelationshipTraversal";
+
+// TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
 
 export function builtinTraits(backend: Backend) {
   const Trait = backend.createTag("Trait");

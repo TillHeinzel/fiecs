@@ -1,4 +1,4 @@
-import { Entity, Pair } from "./EntityData";
+import { Entity, Pair } from "./Core/EntityData";
 
 export function ensureRelationshipId(type: Entity, target: Entity) {
   return lookupRelationshipId() ?? createRelationshipId();

@@ -1,6 +1,5 @@
-import { Archetype } from "./Archetype";
 import { AtomicOperationManager } from "./AtomicOperationManager";
-import { ensureRelationshipId } from "./ensureRelationshipId";
+import { Archetype } from "./Core/Archetype";
 import {
   canDefaultInitialize,
   Entity,
@@ -13,7 +12,7 @@ import {
   Initializer,
   isPair,
   Pair,
-} from "./EntityData";
+} from "./Core/EntityData";
 import {
   ComponentHookCallback,
   LinkType,
@@ -21,10 +20,11 @@ import {
   Phase,
   RelationshipHookCallback,
   runAllHooks,
-} from "./Hooks";
+} from "./Core/Hooks";
+import { ECSStorage } from "./Core/Storage";
+import { ensureRelationshipId } from "./ensureRelationshipId";
 import { NameMap } from "./NameMap";
 import { Query } from "./Query";
-import { ECSStorage } from "./Storage";
 
 export class Backend {
   storage: ECSStorage = new ECSStorage();
