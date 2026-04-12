@@ -5,7 +5,7 @@ import { IEntity, IPair } from "./Storage/IEntity";
 export type Id = Entity | Pair;
 
 export class Entity implements IEntity<Archetype, Entity, Pair> {
-  archetype: Archetype;
+  archetype?: Archetype;
   componentData: Map<Id, unknown> = new Map();
   // archetypes that have this entity as a component
   backLinksComponent?: Set<Archetype> = new Set();
@@ -24,10 +24,6 @@ export class Entity implements IEntity<Archetype, Entity, Pair> {
 
   initializer?: Initializer;
   relationshipHasNoData?: boolean;
-
-  constructor(archetype: Archetype) {
-    this.archetype = archetype;
-  }
 }
 
 export type Initializer = {

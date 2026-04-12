@@ -1,5 +1,5 @@
 import { IArchetype } from "./IArchetype";
-import { IEntity, IPair } from "./IEntity";
+import { IEntity, IPair, isAlive } from "./IEntity";
 import { LinkType, reverseLinkType } from "./Links";
 
 export class ECSStorage<
@@ -9,7 +9,7 @@ export class ECSStorage<
 > {
   constructor(
     makeArchetype: { new (components: ReadonlySet<Entity | Pair>): Archetype },
-    makeEntity: { new (archetype: Archetype): Entity },
+    makeEntity: { new (): Entity },
   ) {
     this.makeArchetype = makeArchetype;
     this.makeEntity = makeEntity;
@@ -25,8 +25,11 @@ export class ECSStorage<
     return new this.makeArchetype(components);
   }
 
-  newEntity(archetype: Archetype) {
-    return new this.makeEntity(archetype);
+  newEntity() {
+    const newEntity = new this.makeEntity();
+    this.emptyArchetype.entities.add(newEntity);
+    newEntity.archetype = this.emptyArchetype;
+    return newEntity;
   }
 
   emptyArchetype: Archetype;
@@ -35,7 +38,7 @@ export class ECSStorage<
   addNewArchetypeCallbacks: Set<(archetype: Archetype) => void> = new Set();
 
   #moveToArchetype(entity: Entity, newArchetype: Archetype) {
-    entity.archetype.entities.delete(entity);
+    entity.archetype?.entities.delete(entity);
     newArchetype.entities.add(entity);
     entity.archetype = newArchetype;
   }
@@ -47,11 +50,11 @@ export class ECSStorage<
   }
 
   isAlive(entity: Entity) {
-    return entity.archetype !== this.destructedArchetype;
+    return entity.archetype !== undefined;
   }
 
   createEntity() {
-    const entity = this.newEntity(this.emptyArchetype);
+    const entity = this.newEntity();
     this.emptyArchetype.entities.add(entity);
     return entity;
   }
@@ -104,12 +107,12 @@ export class ECSStorage<
   moveToDestructedArchetype(entity: Entity) {
     entity.componentData.clear();
 
-    entity.archetype.entities.delete(entity);
+    entity.archetype?.entities.delete(entity);
     // not actually added to the destructed archetype's entities set,
     // as this archetype is only used for destructed entities,
     // which should never be queried for.
     // This way, they can be cleaned up by GC
-    entity.archetype = this.destructedArchetype;
+    entity.archetype = undefined;
   }
 
   set(entity: Entity, id: Entity | Pair, newVal: unknown) {
@@ -117,6 +120,7 @@ export class ECSStorage<
   }
 
   has(entity: Entity, id: Entity | Pair) {
+    if (!isAlive(entity)) return false;
     return entity.archetype.components.has(id);
   }
 
@@ -134,6 +138,8 @@ export class ECSStorage<
     toAdd: Set<Entity | Pair>,
     toRemove: Set<Entity | Pair>,
   ) {
+    if (!isAlive(entity)) return;
+
     if (toAdd.size === 0 && toRemove.size === 0) return;
 
     const lookupCheapLink = () => {

@@ -5,7 +5,7 @@ export interface IEntity<
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
 > {
-  archetype: Archetype;
+  archetype?: Archetype;
   componentData: Map<Entity | Pair, unknown>;
   // archetypes that have this entity as a component
   backLinksComponent?: Set<Archetype>;
@@ -26,6 +26,16 @@ export interface IPair<
   backLinksComponent: Set<Archetype>;
 }
 
+export function isAlive<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
+>(
+  entity: IEntity<Archetype, Entity, Pair>,
+): entity is IEntity<Archetype, Entity, Pair> & { archetype: Archetype } {
+  return entity.archetype !== undefined;
+}
+
 export function isPair<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
@@ -44,6 +54,7 @@ export function getRelationshipTargets<
   entity: IEntity<Archetype, Entity, Pair>,
   relationship: IEntity<Archetype, Entity, Pair>,
 ): Set<Entity> {
+  if (!isAlive(entity)) return new Set();
   return new Set(
     entity.archetype.components
       .keys()
@@ -58,6 +69,7 @@ export function getARelationshipPair<
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
 >(entity: Entity, relationship: Entity): Pair | undefined {
+  if (!isAlive(entity)) return undefined;
   return entity.archetype.components
     .keys()
     .filter((component) => isPair(component))
@@ -69,6 +81,7 @@ export function getARelationshipTarget<
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
 >(entity: Entity, relationship: Entity): Entity | undefined {
+  if (!isAlive(entity)) return undefined;
   return entity.archetype.components
     .keys()
     .filter((component) => isPair(component))
@@ -93,6 +106,7 @@ export function hasAnyRelationship<
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
 >(entity: Entity, relationship: Entity): boolean {
+  if (!isAlive(entity)) return false;
   return entity.archetype.components
     .keys()
     .filter((component) => isPair(component))
