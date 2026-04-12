@@ -53,7 +53,7 @@ export function depthFirst(
 
 export function up(entity: Entity, relationship: Entity) {
   return (
-    relationship.backLinksType
+    relationship.backLinksRelationship
       ?.get(entity)
       ?.backLinksComponent?.keys()
       .flatMap((archetype) => archetype.entities) ?? new Set<Entity>().keys()

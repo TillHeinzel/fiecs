@@ -1,63 +1,54 @@
 import { Archetype } from "./Archetype";
 import { Hooks } from "./Hooks";
+import { IEntity, IPair } from "./Storage";
 
 export type Id = Entity | Pair;
 
-export class Entity {
-  name?: string;
-  _isAlive: boolean;
-
+export class Entity implements IEntity<Archetype, Entity, Pair> {
   archetype: Archetype;
-  componentData: Map<Id, unknown>;
-
-  type: Entity = this;
-  target: undefined = undefined;
-
+  componentData: Map<Id, unknown> = new Map();
   // archetypes that have this entity as a component
   backLinksComponent?: Set<Archetype> = new Set();
   // relationships where this entity is the type
-  backLinksType?: Map<Entity, Pair>;
+  backLinksRelationship?: Map<Entity, Pair>;
   // relationships where this entity is the target
   backLinksTarget?: Map<Entity, Pair>;
+
+  target: undefined = undefined;
+
+  name?: string;
+  printName(): string | undefined {
+    return this.name;
+  }
+  hooks: Hooks = new Hooks();
 
   initializer?: Initializer;
   relationshipHasNoData?: boolean;
 
-  hooks?: Hooks;
-
   constructor(archetype: Archetype) {
-    this._isAlive = true;
-    this.componentData = new Map();
     this.archetype = archetype;
   }
 }
 
-export function getName(id: Id): string | undefined {
-  if (isPair(id)) {
-    return `(${id.type.name}, ${id.target.name})`;
-  }
-  return id.name;
-}
-
-export function has(e: Entity, component: Id) {
-  return e.archetype.components.has(component);
-}
-
 export type Initializer = {
-  initialize: (val: unknown) => unknown;
-  defaultInitialize?: () => unknown;
+  canDefaultInitialize: boolean;
+  tryInitialize: (val?: { data: unknown }) => unknown;
 };
 
-export class Pair {
-  type: Entity;
+export class Pair implements IPair<Entity, Archetype> {
+  relationship: Entity;
   target: Entity;
   backLinksComponent: Set<Archetype> = new Set();
 
   initializer?: Initializer;
 
+  printName(): string | undefined {
+    return `(${this.relationship.name}, ${this.target.name})`;
+  }
+
   constructor(type: Entity, target: Entity) {
     this.target = target;
-    this.type = type;
+    this.relationship = type;
 
     this.initializer = (() => {
       if (type.initializer !== undefined && target.initializer === undefined) {
@@ -105,7 +96,7 @@ type IdWithDefaultInitialize = IdWithData & {
 };
 
 export function canDefaultInitialize(id: Id): id is IdWithDefaultInitialize {
-  return !hasData(id) || id.initializer?.defaultInitialize !== undefined;
+  return !hasData(id) || id.initializer.canDefaultInitialize;
 }
 
 export function idType(id: Id): IdType {
@@ -130,7 +121,7 @@ export function getRelationshipPairs(
     entity.archetype.components
       .keys()
       .filter((component) => isPair(component))
-      .filter((pair) => pair.type === relationship),
+      .filter((pair) => pair.relationship === relationship),
   );
 }
 
@@ -142,7 +133,7 @@ export function getRelationshipTargets(
     entity.archetype.components
       .keys()
       .filter((component) => isPair(component))
-      .filter((pair) => pair.type === relationship)
+      .filter((pair) => pair.relationship === relationship)
       .map((pair) => pair.target),
   );
 }
@@ -154,7 +145,7 @@ export function getARelationshipPair(
   return entity.archetype.components
     .keys()
     .filter((component) => isPair(component))
-    .find((pair) => pair.type === relationship);
+    .find((pair) => pair.relationship === relationship);
 }
 
 export function getARelationshipTarget(
@@ -164,13 +155,29 @@ export function getARelationshipTarget(
   return entity.archetype.components
     .keys()
     .filter((component) => isPair(component))
-    .find((pair) => pair.type === relationship)?.target;
+    .find((pair) => pair.relationship === relationship)?.target;
 }
 
 export function isInUseAsComponent(entity: Entity): boolean {
   return (
     (entity.backLinksComponent !== undefined &&
       entity.backLinksComponent.size > 0) ||
-    (entity.backLinksType !== undefined && entity.backLinksType.size > 0)
+    (entity.backLinksRelationship !== undefined &&
+      entity.backLinksRelationship.size > 0)
   );
+}
+
+export function hasAnyRelationship(
+  entity: Entity,
+  relationship: Entity,
+): boolean {
+  for (const component of entity.archetype.components) {
+    if (
+      component.target !== undefined &&
+      component.relationship === relationship
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

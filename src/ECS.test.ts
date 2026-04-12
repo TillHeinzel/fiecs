@@ -370,7 +370,7 @@ describe("entities, names, aliveness", () => {
 
       // @ts-expect-error //should throw because overload is not acceptable
       expect(() => ecs.destructAllWith(likesApples, alice)).toThrow(
-        "Cannot destructAllWith with a relationship and another entity",
+        "Invalid arguments for destructAllWith",
       );
     });
 
@@ -722,7 +722,7 @@ describe("components", () => {
     health.setName("health");
     const e = ecs.createEntity();
     expect(() => e.add(health)).toThrow(
-      'Component "health" cannot be default initialized and thus not be used in add',
+      'Component "health" cannot be default initialized',
     );
   });
 

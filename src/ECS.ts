@@ -94,8 +94,19 @@ export class ECS {
     target: AnyComponentHandle,
   ): void;
   removeFromAll(component: AnyRelationshipHandle): void;
-  removeFromAll(component: AnyIdHandle, target?: AnyComponentHandle) {
-    this.#backend.removeFromAll(component.data, target?.data);
+  removeFromAll(first: AnyIdHandle, second?: AnyComponentHandle) {
+    if (second === undefined) {
+      this.#backend.removeFromAll(first.data);
+      return;
+    }
+    if (first instanceof ComponentHandle || first instanceof EntityHandle) {
+      this.#backend.removeFromAll(
+        this.#backend.relationship(first.data, second.data),
+      );
+      return;
+    }
+
+    throw new Error("Invalid arguments for removeFromAll");
   }
 
   destructAllWith(component: AnyComponentHandle): void;
@@ -104,8 +115,19 @@ export class ECS {
     target: AnyComponentHandle,
   ): void;
   destructAllWith(component: AnyRelationshipHandle): void;
-  destructAllWith(component: AnyIdHandle, target?: AnyComponentHandle) {
-    this.#backend.destructAllWith(component.data, target?.data);
+  destructAllWith(first: AnyIdHandle, second?: AnyComponentHandle) {
+    if (second === undefined) {
+      this.#backend.destructAllWith(first.data);
+      return;
+    }
+    if (first instanceof ComponentHandle || first instanceof EntityHandle) {
+      this.#backend.destructAllWith(
+        this.#backend.relationship(first.data, second.data),
+      );
+      return;
+    }
+
+    throw new Error("Invalid arguments for destructAllWith");
   }
 
   set<T extends ComponentDataSchema>(

@@ -1,18 +1,70 @@
-import { Archetype } from "./Archetype";
-import { Entity, Id } from "./EntityData";
-import { LinkType } from "./Hooks";
-import { reverseLinkType } from "./Links";
+import { Links, LinkType, reverseLinkType } from "./Links";
 
-export class ECSStorage {
-  emptyArchetype: Archetype = new Archetype(new Set());
+export interface IArchetype<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity,
+  Pair,
+> {
+  readonly components: ReadonlySet<Entity | Pair>;
+  entities: Set<Entity>;
 
-  // not added to archetypes set,
-  // as this archetype is only used for destructed entities,
-  // which should never be queried for
-  destructedArchetype: Archetype = new Archetype(new Set());
+  readonly links: Links<Archetype, Entity | Pair>;
 
-  archetypes = new Set<Archetype>([this.emptyArchetype]);
+  detachConnections(): void;
+}
 
+interface IId<Archetype> {
+  // archetypes that have this entity as a component
+  backLinksComponent?: Set<Archetype>;
+}
+
+export interface IEntity<Archetype, Entity, Pair> extends IId<Archetype> {
+  archetype: Archetype;
+  componentData: Map<Entity | Pair, unknown>;
+  // archetypes that have this entity as a component
+  backLinksComponent?: Set<Archetype>;
+  // relationships where this entity is the type
+  backLinksRelationship?: Map<Entity, Pair>;
+  // relationships where this entity is the target
+  backLinksTarget?: Map<Entity, Pair>;
+}
+
+export interface IPair<Entity, Archetype> extends IId<Archetype> {
+  relationship: Entity;
+  target: Entity;
+  backLinksComponent: Set<Archetype>;
+}
+
+export class ECSStorage<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Entity, Archetype>,
+> {
+  constructor(
+    makeArchetype: { new (components: ReadonlySet<Entity | Pair>): Archetype },
+    makeEntity: { new (archetype: Archetype): Entity },
+  ) {
+    this.makeArchetype = makeArchetype;
+    this.makeEntity = makeEntity;
+    this.emptyArchetype = this.newArchetype(new Set());
+    this.destructedArchetype = this.newArchetype(new Set());
+    this.archetypes = new Set([this.emptyArchetype]);
+  }
+
+  makeArchetype;
+  makeEntity;
+
+  newArchetype(components: ReadonlySet<Entity | Pair>) {
+    return new this.makeArchetype(components);
+  }
+
+  newEntity(archetype: Archetype) {
+    return new this.makeEntity(archetype);
+  }
+
+  emptyArchetype: Archetype;
+  destructedArchetype: Archetype;
+  archetypes: Set<Archetype>;
   addNewArchetypeCallbacks: Set<(archetype: Archetype) => void> = new Set();
 
   #moveToArchetype(entity: Entity, newArchetype: Archetype) {
@@ -21,13 +73,23 @@ export class ECSStorage {
     entity.archetype = newArchetype;
   }
 
-  getArchetype(components: ReadonlySet<Id>) {
+  private getArchetype(components: ReadonlySet<Entity | Pair>) {
     return (
       this.#lookupArchetype(components) ?? this.#addNewArchetype(components)
     );
   }
 
-  #lookupArchetype(components: ReadonlySet<Id>) {
+  isAlive(entity: Entity) {
+    return entity.archetype !== this.destructedArchetype;
+  }
+
+  createEntity() {
+    const entity = this.newEntity(this.emptyArchetype);
+    this.emptyArchetype.entities.add(entity);
+    return entity;
+  }
+
+  #lookupArchetype(components: ReadonlySet<Entity | Pair>) {
     if (this.#statistics) this.#statistics.expensiveLookups++;
 
     if (components.size === 0) {
@@ -54,8 +116,8 @@ export class ECSStorage {
     return undefined;
   }
 
-  #addNewArchetype(components: ReadonlySet<Id>) {
-    const newArchetype: Archetype = new Archetype(components);
+  #addNewArchetype(components: ReadonlySet<Entity | Pair>) {
+    const newArchetype: Archetype = this.newArchetype(components);
     this.archetypes.add(newArchetype);
     for (const id of components) {
       if (id.backLinksComponent === undefined) {
@@ -72,11 +134,38 @@ export class ECSStorage {
     this.#moveToArchetype(entity, this.emptyArchetype);
   }
 
+  moveToDestructedArchetype(entity: Entity) {
+    entity.componentData.clear();
+
+    entity.archetype.entities.delete(entity);
+    // not actually added to the destructed archetype's entities set,
+    // as this archetype is only used for destructed entities,
+    // which should never be queried for.
+    // This way, they can be cleaned up by GC
+    entity.archetype = this.destructedArchetype;
+  }
+
+  set(entity: Entity, id: Entity | Pair, newVal: unknown) {
+    entity.componentData.set(id, newVal);
+  }
+
+  has(entity: Entity, id: Entity | Pair) {
+    return entity.archetype.components.has(id);
+  }
+
+  get(entity: Entity, id: Entity | Pair) {
+    return entity.componentData.get(id);
+  }
+
+  remove(entity: Entity, id: Entity | Pair) {
+    entity.componentData.delete(id);
+  }
+
   moveToArchetype(
     entity: Entity,
-    link: { type: LinkType; id: Id },
-    toAdd: Set<Id>,
-    toRemove: Set<Id>,
+    link: { type: LinkType; id: Entity | Pair },
+    toAdd: Set<Entity | Pair>,
+    toRemove: Set<Entity | Pair>,
   ) {
     if (toAdd.size === 0 && toRemove.size === 0) return;
 
@@ -101,15 +190,105 @@ export class ECSStorage {
       return newArchetype;
     };
     this.#moveToArchetype(entity, lookupCheapLink() ?? establishNewLink());
+    toRemove.forEach((id) => this.remove(entity, id));
+  }
+
+  destructAllWith(id: Entity | Pair, destructEntity: (entity: Entity) => void) {
+    if (id.backLinksComponent === undefined) return;
+
+    id.backLinksComponent
+      .keys()
+      .flatMap((archetype) => archetype.entities.keys())
+      .forEach((entity) => destructEntity(entity));
+
+    id.backLinksComponent.forEach((archetype) =>
+      this.deleteArchetype(archetype),
+    );
+  }
+
+  cleanup(archetype: Archetype) {
+    if (archetype.entities.size === 0 && archetype !== this.emptyArchetype) {
+      this.deleteArchetype(archetype);
+    }
+  }
+
+  removeFromAll(id: Entity | Pair) {
+    if (id.backLinksComponent === undefined) return;
+
+    for (const archetype of id.backLinksComponent) {
+      this.removeComponentsFromArchetypeAndDeleteIt(archetype, new Set([id]));
+    }
+  }
+
+  removeFromAllAdd(
+    id: Entity | Pair,
+    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
+  ) {
+    if (id.backLinksComponent === undefined) return;
+
+    for (const archetype of id.backLinksComponent) {
+      addToRemove(archetype, id);
+    }
+  }
+
+  removeFromAllAsRelationshipAdd(
+    entity: Entity,
+    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
+  ) {
+    if (entity.backLinksRelationship === undefined) return;
+
+    entity.backLinksRelationship.forEach((pair) => {
+      pair.backLinksComponent.forEach((archetype) => {
+        addToRemove(archetype, pair);
+      });
+    });
+  }
+
+  removeFromAllAsTargetAdd(
+    entity: Entity,
+    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
+  ) {
+    if (entity.backLinksTarget === undefined) return;
+    entity.backLinksTarget.forEach((pair) => {
+      pair.backLinksComponent.forEach((archetype) => {
+        addToRemove(archetype, pair);
+      });
+    });
+  }
+
+  removeFromAllFull(entity: Entity) {
+    const archetypesToDelete = new Map<Archetype, Set<Entity | Pair>>();
+
+    const addArchetypeToDelete = (
+      archetype: Archetype,
+      component: Entity | Pair,
+    ) => {
+      if (!archetypesToDelete.has(archetype)) {
+        archetypesToDelete.set(archetype, new Set());
+      }
+      archetypesToDelete.get(archetype)!.add(component);
+    };
+
+    this.removeFromAllAdd(entity, addArchetypeToDelete);
+    this.removeFromAllAsRelationshipAdd(entity, addArchetypeToDelete);
+    this.removeFromAllAsTargetAdd(entity, addArchetypeToDelete);
+
+    for (const [archetype, componentsToRemove] of archetypesToDelete) {
+      this.removeComponentsFromArchetypeAndDeleteIt(
+        archetype,
+        componentsToRemove,
+      );
+    }
   }
 
   removeComponentsFromArchetypeAndDeleteIt(
     archetype: Archetype,
-    componentsToRemove: Set<Id>,
+    componentsToRemove: Set<Entity | Pair>,
   ) {
-    const archetypeToMoveEntitiesTo = (() => {
-      if (componentsToRemove.size === 0) return archetype;
+    if (componentsToRemove.size === 0)
+      throw new Error("Internal: Can't remove 0 components from archetype");
 
+    const archetypeToMoveEntitiesTo = (() => {
       if (componentsToRemove.size === 1) {
         const component = componentsToRemove.values().next().value!;
         const preppedLink = archetype.links.get(LinkType.Remove, component);
@@ -123,15 +302,13 @@ export class ECSStorage {
 
     for (const entity of archetype.entities) {
       this.#moveToArchetype(entity, archetypeToMoveEntitiesTo);
-      componentsToRemove.forEach((component) =>
-        entity.componentData.delete(component),
-      );
+      componentsToRemove.forEach((component) => this.remove(entity, component));
     }
 
     this.deleteArchetype(archetype);
   }
 
-  deleteArchetype(archetype: Archetype) {
+  private deleteArchetype(archetype: Archetype) {
     this.archetypes.delete(archetype);
 
     archetype.detachConnections();
@@ -162,11 +339,11 @@ export class ECSStorage {
   }
 }
 
-function addAll(archetype: ReadonlySet<Id>, ids: Set<Id>): ReadonlySet<Id> {
+function addAll<T>(archetype: ReadonlySet<T>, ids: Set<T>): ReadonlySet<T> {
   return archetype.union(ids);
 }
 
-function removeAll(archetype: ReadonlySet<Id>, ids: Set<Id>): ReadonlySet<Id> {
+function removeAll<T>(archetype: ReadonlySet<T>, ids: Set<T>): ReadonlySet<T> {
   return archetype.difference(ids);
 }
 

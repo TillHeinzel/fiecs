@@ -1,13 +1,13 @@
-import { Entity, Id } from "./EntityData";
+import { Entity, Id, Pair } from "./EntityData";
 import { Hooks } from "./Hooks";
 import { Links } from "./Links";
+import { IArchetype } from "./Storage";
 
-export class Archetype {
+export class Archetype implements IArchetype<Archetype, Entity, Pair> {
   readonly components: ReadonlySet<Id>;
   entities = new Set<Entity>();
 
-  readonly hooks = new Hooks();
-  readonly links = new Links(this);
+  readonly links: Links<Archetype, Id> = new Links<Archetype, Id>(this);
 
   constructor(components: ReadonlySet<Id>) {
     this.components = components;
@@ -20,4 +20,6 @@ export class Archetype {
 
     this.links.detachLinks();
   }
+
+  readonly hooks = new Hooks();
 }

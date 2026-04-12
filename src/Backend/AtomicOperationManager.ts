@@ -1,14 +1,15 @@
-import { Entity, Id } from "./Core/EntityData";
-import { LinkType } from "./Core/Hooks";
+import { Archetype } from "./Core/Archetype";
+import { Entity, Id, Pair } from "./Core/EntityData";
+import { LinkType } from "./Core/Links";
 import { ECSStorage } from "./Core/Storage";
 
 export class AtomicOperationManager {
-  storage: ECSStorage;
+  storage: ECSStorage<Archetype, Entity, Pair>;
   #opens = 0;
   #dirty = false;
   #targets: Map<Entity, OperationPayload> = new Map();
 
-  constructor(storage: ECSStorage) {
+  constructor(storage: ECSStorage<Archetype, Entity, Pair>) {
     this.storage = storage;
   }
 
@@ -55,7 +56,6 @@ class OperationPayload {
   dataToRemove: Set<Id> = new Set();
   idsToAdd: Set<Id> = new Set();
   idsToRemove: Set<Id> = new Set();
-  postHooksToCall: (() => void)[] = [];
 
   constructor(entity: Entity, link: { type: LinkType; id: Id }) {
     this.entity = entity;
@@ -86,21 +86,15 @@ class OperationPayload {
     return this.idsToRemove.has(id);
   }
 
-  close(storage: ECSStorage) {
-    this.dataToSet.forEach(([id, val]) => {
-      this.entity.componentData.set(id, val);
-    });
-    this.dataToRemove.forEach((id) => {
-      this.entity.componentData.delete(id);
-    });
-
+  close(storage: ECSStorage<Archetype, Entity, Pair>) {
     storage.moveToArchetype(
       this.entity,
       this.link,
       this.idsToAdd,
       this.idsToRemove,
     );
-
-    this.postHooksToCall.forEach((callback) => callback());
+    this.dataToSet.forEach(([id, val]) => {
+      storage.set(this.entity, id, val);
+    });
   }
 }

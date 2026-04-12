@@ -1,30 +1,96 @@
 import { Backend, Operation, Phase } from "./Backend";
 import {
   canDefaultInitialize,
+  Entity,
   getARelationshipPair,
-  getName,
   getRelationshipTargets,
-  has,
   isInUseAsComponent,
+  Pair,
 } from "./Backend/Core/EntityData";
-import { Hooks } from "./Backend/Core/Hooks";
+import { HookCallback } from "./Backend/Core/Hooks";
 import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
-import { makeQuery, wildcard } from "./Backend/Query";
+import { makeQuery, Query, wildcard } from "./Backend/Query";
 import { down, traverseRelationship } from "./Backend/RelationshipTraversal";
 
 // TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
 
+type ComponentHookCallback = (component: Entity, entity: Entity) => void;
+type RelationshipHookCallback = (pair: Pair, entity: Entity) => void;
+
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asComponent,
+  query: Query,
+  callback: ComponentHookCallback,
+): void;
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asRelationship,
+  query: Query,
+  callback: RelationshipHookCallback,
+): void;
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asTarget,
+  query: Query,
+  callback: RelationshipHookCallback,
+): void;
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation,
+  query: Query,
+  callback: ComponentHookCallback | RelationshipHookCallback,
+) {
+  backend.addHook(phase, operation, query, callback as HookCallback);
+}
+
+function addHookToEntity(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asComponent,
+  entity: Entity,
+  callback: ComponentHookCallback,
+): void;
+function addHookToEntity(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asRelationship,
+  entity: Entity,
+  callback: RelationshipHookCallback,
+): void;
+function addHookToEntity(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asTarget,
+  entity: Entity,
+  callback: RelationshipHookCallback,
+): void;
+function addHookToEntity(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation,
+  entity: Entity,
+  callback: ComponentHookCallback | RelationshipHookCallback,
+) {
+  backend.addHookToEntity(phase, operation, entity, callback as HookCallback);
+}
+
 export function builtinTraits(backend: Backend) {
   const Trait = backend.createTag("Trait");
   backend.add(Trait, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asRelationship,
     makeQuery(Trait),
     (pair, entity) => {
       if (isInUseAsComponent(entity)) {
         throw new Error(
-          `Component "${getName(pair.type)}" is a Trait and cannot be added to a component that is already in use!`,
+          `Component "${pair.relationship.printName()}" is a Trait and cannot be added to a component that is already in use!`,
         );
       }
     },
@@ -32,24 +98,26 @@ export function builtinTraits(backend: Backend) {
 
   const Relationship = backend.createTag("Relationship");
   backend.add(Relationship, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asComponent,
     makeQuery(Relationship),
     (component) => {
       throw new Error(
-        `Component "${component.name}" is purely a relationship and cannot be used as a component`,
+        `Component "${component.printName()}" is purely a relationship and cannot be used as a component`,
       );
     },
   );
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asTarget,
     makeQuery(Relationship),
     (pair) => {
-      if (!has(pair.type, Trait)) {
+      if (!backend.has(pair.relationship, Trait)) {
         throw new Error(
-          `Component "${pair.target.name}" is purely a relationship and cannot be used as a target of a relationship`,
+          `Component "${pair.target.printName()}" is purely a relationship and cannot be used as a target of a relationship`,
         );
       }
     },
@@ -57,19 +125,20 @@ export function builtinTraits(backend: Backend) {
 
   const Acyclic = backend.createTag("Acyclic");
   backend.add(Acyclic, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asRelationship,
     makeQuery(Acyclic),
     (pair, entity) => {
-      const relationship = pair.type;
+      const relationship = pair.relationship;
       const target = pair.target;
 
-      if (!has(relationship, Acyclic)) return;
+      if (!backend.has(relationship, Acyclic)) return;
 
       if (target === entity) {
         throw new Error(
-          `Relationship "${relationship.name}" is acyclic and cannot target the entity it is added to`,
+          `Relationship "${relationship.printName()}" is acyclic and cannot target the entity it is added to`,
         );
       }
 
@@ -77,7 +146,7 @@ export function builtinTraits(backend: Backend) {
         (currentTarget) => {
           if (currentTarget === entity) {
             throw new Error(
-              `Relationship "${relationship.name}" is acyclic and cannot be added to an entity that would create a cycle`,
+              `Relationship "${relationship.printName()}" is acyclic and cannot be added to an entity that would create a cycle`,
             );
           }
         },
@@ -91,7 +160,8 @@ export function builtinTraits(backend: Backend) {
   );
   backend.add(RelationshipHasNoData, Trait);
   backend.add(RelationshipHasNoData, RelationshipHasNoDataSpecialTag);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asComponent,
     makeQuery(RelationshipHasNoDataSpecialTag),
@@ -105,17 +175,18 @@ export function builtinTraits(backend: Backend) {
     "TargetMustBeDefaultInitializable",
   );
   backend.add(TargetMustBeDefaultInitializable, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asRelationship,
     makeQuery(TargetMustBeDefaultInitializable),
     (pair) => {
-      const relationship = pair.type;
+      const relationship = pair.relationship;
       const target = pair.target;
 
       if (!canDefaultInitialize(target)) {
         throw new Error(
-          `Relationship "${relationship.name}" is marked as TargetMustBeDefaultInitializable while target "${target.name}" has data and is not default initializable`,
+          `Relationship "${relationship.printName()}" is marked as TargetMustBeDefaultInitializable while target "${target.printName()}" has data and is not default initializable`,
         );
       }
     },
@@ -127,12 +198,13 @@ export function builtinTraits(backend: Backend) {
   backend.add(With, RelationshipHasNoData);
   backend.add(With, Acyclic);
   backend.add(With, TargetMustBeDefaultInitializable);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.postAdd,
     Operation.asRelationship,
     makeQuery([With, wildcard]),
     (pair, entity) => {
-      getRelationshipTargets(pair.type, With)
+      getRelationshipTargets(pair.relationship, With)
         .keys()
         .forEach((withComp) =>
           backend.add(entity, ensureRelationshipId(withComp, pair.target)),
@@ -143,22 +215,21 @@ export function builtinTraits(backend: Backend) {
   backend.add(WithSpecialTag, Trait);
   backend.add(With, WithSpecialTag);
 
-  backend.addHook(
+  addHook(
+    backend,
     Phase.postAdd,
     Operation.asRelationship,
     makeQuery(WithSpecialTag),
     (pair) => {
-      if (pair.type !== With) return;
+      if (pair.relationship !== With) return;
 
-      if (!pair.target.hooks) {
-        pair.target.hooks = new Hooks();
-      }
-
-      pair.target.hooks.add(
+      addHookToEntity(
+        backend,
         Phase.postRemove,
         Operation.asComponent,
+        pair.target,
         (component, entity) => {
-          With.backLinksType
+          With.backLinksRelationship
             ?.get(component)
             ?.backLinksComponent?.keys()
             .flatMap((archetype) => archetype.entities)
@@ -167,12 +238,14 @@ export function builtinTraits(backend: Backend) {
             });
         },
       );
-      pair.target.hooks.add(
+      addHookToEntity(
+        backend,
         Phase.postRemove,
         Operation.asRelationship,
+        pair.target,
         (pair, entity) => {
-          With.backLinksType
-            ?.get(pair.type)
+          With.backLinksRelationship
+            ?.get(pair.relationship)
             ?.backLinksComponent?.keys()
             .flatMap((archetype) => archetype.entities)
             ?.map((withComp) => ensureRelationshipId(withComp, pair.target))
@@ -184,7 +257,8 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  backend.addHook(
+  addHook(
+    backend,
     Phase.postAdd,
     Operation.asComponent,
     makeQuery([With, wildcard]),
@@ -197,14 +271,15 @@ export function builtinTraits(backend: Backend) {
 
   const Singleton = backend.createTag("Singleton");
   backend.add(Singleton, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asComponent,
     makeQuery(Singleton),
     (component, entity) => {
       if (entity !== component) {
         throw new Error(
-          `Component "${component.name}" is a singleton and cannot be added to entities other than itself`,
+          `Component "${component.printName()}" is a singleton and cannot be added to entities other than itself`,
         );
       }
     },
@@ -212,59 +287,67 @@ export function builtinTraits(backend: Backend) {
 
   const Symmetric = backend.createTag("Symmetric");
   backend.add(Symmetric, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.postAdd,
     Operation.asRelationship,
     makeQuery(Symmetric),
     (pair, entity) => {
-      backend.add(pair.target, backend.relationship(pair.type, entity));
+      backend.add(pair.target, backend.relationship(pair.relationship, entity));
     },
   );
-  backend.addHook(
+  addHook(
+    backend,
     Phase.postRemove,
     Operation.asRelationship,
     makeQuery(Symmetric),
     (pair, entity) => {
-      backend.remove(pair.target, backend.relationship(pair.type, entity));
+      backend.remove(
+        pair.target,
+        backend.relationship(pair.relationship, entity),
+      );
     },
   );
 
   const Target = backend.createTag("Target");
   backend.add(Target, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asComponent,
     makeQuery(Target),
     (component) => {
       throw new Error(
-        `Entity "${component.name}" is marked as a Target and cannot be used as a component`,
+        `Entity "${component.printName()}" is marked as a Target and cannot be used as a component`,
       );
     },
   );
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asRelationship,
     makeQuery(Target),
     (pair) => {
       throw new Error(
-        `Entity "${pair.type.name}" is marked as a Target and cannot be used as a relationship`,
+        `Entity "${pair.relationship.printName()}" is marked as a Target and cannot be used as a relationship`,
       );
     },
   );
 
   const Exclusive = backend.createTag("Exclusive");
   backend.add(Exclusive, Trait);
-  backend.addHook(
+  addHook(
+    backend,
     Phase.preAdd,
     Operation.asRelationship,
     makeQuery(Exclusive),
     (pair, entity) => {
-      const currentPair = getARelationshipPair(entity, pair.type);
+      const currentPair = getARelationshipPair(entity, pair.relationship);
 
       if (currentPair !== undefined) {
         backend.remove(entity, currentPair);
 
-        getRelationshipTargets(pair.type, With)
+        getRelationshipTargets(pair.relationship, With)
           .keys()
           .forEach((withComp) =>
             backend.remove(

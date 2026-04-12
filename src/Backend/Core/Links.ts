@@ -1,18 +1,18 @@
-import { Archetype } from "./Archetype";
-import { Id } from "./EntityData";
-import { LinkType } from "./Hooks";
+interface IArchetype<Archetype extends IArchetype<Archetype, Id>, Id> {
+  links: Links<Archetype, Id>;
+}
 
-export class Links {
+export class Links<Archetype extends IArchetype<Archetype, Id>, Id> {
   archetype: Archetype;
 
   constructor(archetype: Archetype) {
     this.archetype = archetype;
   }
 
-  private forAdd = new Map<Id, NewLink>();
-  private forRemove = new Map<Id, NewLink>();
+  private forAdd = new Map<Id, NewLink<Id, Archetype>>();
+  private forRemove = new Map<Id, NewLink<Id, Archetype>>();
 
-  private targetingThis = new Set<NewLink>();
+  private targetingThis = new Set<NewLink<Id, Archetype>>();
 
   count() {
     return this.forAdd.size + this.forRemove.size;
@@ -71,9 +71,14 @@ export function reverseLinkType(linkType: LinkType): LinkType {
       return LinkType.Add;
   }
 }
-type NewLink = {
+type NewLink<Id, Archetype extends IArchetype<Archetype, Id>> = {
   component: Id;
   type: LinkType;
   target: Archetype;
   source: Archetype;
 };
+
+export enum LinkType {
+  Add,
+  Remove,
+}
