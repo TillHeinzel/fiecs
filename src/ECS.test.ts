@@ -862,8 +862,6 @@ describe("components", () => {
     e.set(health, undefined);
     expect(e.get(health)).toBeUndefined();
   });
-
-  //TODO[epic=basics] Deleting a component panics
 });
 
 describe("relationships", () => {
@@ -1189,7 +1187,7 @@ describe("relationships", () => {
     );
   });
 
-  test("Trying to create concrete relationships with components that have been deleted throws", () => {
+  test("Trying to create concrete relationships with entities that have been deleted throws", () => {
     const ecs = new ECS();
 
     const eats = ecs.createTag();
@@ -1198,19 +1196,6 @@ describe("relationships", () => {
     eats.destruct();
 
     expect(() => ecs.createRelationshipTag(eats, apples)).toThrow(
-      "Component does not exist in ECS",
-    );
-  });
-
-  test("Trying to create concrete relationships with components that have been deleted throws", () => {
-    const ecs = new ECS();
-
-    const eats = ecs.createComponent(z.number().default(0));
-    const apples = ecs.createEntity();
-
-    eats.destruct();
-
-    expect(() => ecs.createRelationshipComponent(eats, apples)).toThrow(
       "Component does not exist in ECS",
     );
   });
@@ -1412,23 +1397,6 @@ describe("Cleanup on destruct", () => {
     });
   });
 
-  test("destructing a component removes it from all entities including data", () => {
-    const ecs = new ECS();
-    const health = ecs.createComponent(z.number().default(0));
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
-
-    alice.set(health, 100);
-    bob.set(health, 50);
-
-    health.destruct();
-
-    expect(alice.has(health)).toBe(false);
-    expect(bob.has(health)).toBe(false);
-    expect(alice.get(health)).toBeUndefined();
-    expect(bob.get(health)).toBeUndefined();
-  });
-
   test("Destructing an entity removes all archetypes and edges that previously had the entity as a target", () => {
     const ecs = new ECS();
     const likes = ecs.createTag();
@@ -1455,6 +1423,14 @@ describe("Cleanup on destruct", () => {
 
     expect(ecs.getArchetypeCount()).toBe(previousArchetypeCount - 2);
     expect(ecs.getArchetypeGraphEdgeCount()).toBe(previousEdgeCount - 4);
+  });
+
+  test("Trying to delete a component throws an error", () => {
+    const ecs = new ECS();
+    const health = ecs.createComponent(z.number());
+    expect(() => health.destruct()).toThrow(
+      "Components cannot be destructed (by default)",
+    );
   });
 
   //TODO[epic=hierarchies,seq=1] - Cleanup Traits: (OnDelete, Delete), (OnDeleteTarget, Delete), Panic for either
@@ -2218,7 +2194,6 @@ describe("TargetMustBeDefaultInitializable trait", () => {
 });
 
 describe("Exclusive Trait", () => {
-  //TODO[epic=basics, seq=2] - Exclusive Trait
   test("Exclusive is a Trait", () => {
     const ecs = new ECS();
     expect(ecs.builtin.Exclusive.has(ecs.builtin.Trait)).toBe(true);

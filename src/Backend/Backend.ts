@@ -11,7 +11,7 @@ import {
   Id,
   Initializer,
   isPair,
-  Pair,
+  Pair
 } from "./Core/EntityData";
 import {
   ComponentHookCallback,
@@ -113,6 +113,10 @@ export class Backend {
   }
 
   destruct(entity: Entity) {
+    if (hasData(entity)) {
+      throw new Error("Components cannot be destructed (by default)");
+    }
+
     entity._isAlive = false;
     if (entity.name) {
       this.nameMap.deleteName(entity.name);
