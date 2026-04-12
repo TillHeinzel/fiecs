@@ -28,5 +28,7 @@
     "config/config": true,
     "config/public": true,
     "config/src": true
-  }
+  },
+  "commentAnchors.workspace.excludeFiles": "**/{node_modules,.git,.idea,target,out,build,bin,obj,dist,vendor,config}/**/*",
+  "commentAnchors.workspace.matchFiles": "src/**/*"
 }
