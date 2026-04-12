@@ -1,44 +1,11 @@
-import { Links, LinkType, reverseLinkType } from "./Links";
-
-export interface IArchetype<
-  Archetype extends IArchetype<Archetype, Entity, Pair>,
-  Entity,
-  Pair,
-> {
-  readonly components: ReadonlySet<Entity | Pair>;
-  entities: Set<Entity>;
-
-  readonly links: Links<Archetype, Entity | Pair>;
-
-  detachConnections(): void;
-}
-
-interface IId<Archetype> {
-  // archetypes that have this entity as a component
-  backLinksComponent?: Set<Archetype>;
-}
-
-export interface IEntity<Archetype, Entity, Pair> extends IId<Archetype> {
-  archetype: Archetype;
-  componentData: Map<Entity | Pair, unknown>;
-  // archetypes that have this entity as a component
-  backLinksComponent?: Set<Archetype>;
-  // relationships where this entity is the type
-  backLinksRelationship?: Map<Entity, Pair>;
-  // relationships where this entity is the target
-  backLinksTarget?: Map<Entity, Pair>;
-}
-
-export interface IPair<Entity, Archetype> extends IId<Archetype> {
-  relationship: Entity;
-  target: Entity;
-  backLinksComponent: Set<Archetype>;
-}
+import { IArchetype } from "./IArchetype";
+import { IEntity, IPair } from "./IEntity";
+import { LinkType, reverseLinkType } from "./Links";
 
 export class ECSStorage<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
-  Pair extends IPair<Entity, Archetype>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   constructor(
     makeArchetype: { new (components: ReadonlySet<Entity | Pair>): Archetype },

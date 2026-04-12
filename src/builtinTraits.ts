@@ -1,16 +1,13 @@
 import { Backend, Operation, Phase } from "./Backend";
 import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
-import {
-  canDefaultInitialize,
-  Entity,
-  getARelationshipPair,
-  getRelationshipTargets,
-  isInUseAsComponent,
-  Pair,
-} from "./Backend/EntityData";
+import { canDefaultInitialize, Entity, Pair } from "./Backend/EntityData";
 import { HookCallback } from "./Backend/Hooks";
 import { makeQuery, Query, wildcard } from "./Backend/Query";
 import { down, traverseRelationship } from "./Backend/RelationshipTraversal";
+import {
+  getRelationshipTargets,
+  isInUseAsComponent,
+} from "./Backend/Storage/IEntity";
 
 // TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
 
@@ -342,7 +339,10 @@ export function builtinTraits(backend: Backend) {
     Operation.asRelationship,
     makeQuery(Exclusive),
     (pair, entity) => {
-      const currentPair = getARelationshipPair(entity, pair.relationship);
+      const currentPair = backend.getARelationshipPair(
+        entity,
+        pair.relationship,
+      );
 
       if (currentPair !== undefined) {
         backend.remove(entity, currentPair);

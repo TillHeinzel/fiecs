@@ -1,20 +1,18 @@
 import { Archetype } from "./Archetype";
 import { AtomicOperationManager } from "./AtomicOperationManager";
 import { ensureRelationshipId } from "./ensureRelationshipId";
-import {
-  Entity,
-  getARelationshipTarget,
-  getRelationshipTargets,
-  hasAnyRelationship,
-  hasData,
-  Id,
-  isPair,
-  Pair,
-} from "./EntityData";
+import { Entity, hasData, Id, Pair } from "./EntityData";
 import { HookCallback, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { makeQuery, Query } from "./Query";
 import { runAllHooks } from "./runAllHooks";
+import {
+  getARelationshipPair,
+  getARelationshipTarget,
+  getRelationshipTargets,
+  hasAnyRelationship,
+  isPair,
+} from "./Storage/IEntity";
 import { LinkType } from "./Storage/Links";
 import { ECSStorage } from "./Storage/Storage";
 
@@ -227,6 +225,10 @@ export class Backend {
     relationship: Entity,
   ): Entity | undefined {
     return getARelationshipTarget(entity, relationship);
+  }
+
+  getARelationshipPair(entity: Entity, relationship: Entity): Pair | undefined {
+    return getARelationshipPair(entity, relationship);
   }
 
   #checkValid(id: Id) {

@@ -1,6 +1,6 @@
 import { Archetype } from "./Archetype";
 import { Hooks } from "./Hooks";
-import { IEntity, IPair } from "./Storage/Storage";
+import { IEntity, IPair } from "./Storage/IEntity";
 
 export type Id = Entity | Pair;
 
@@ -35,7 +35,7 @@ export type Initializer = {
   tryInitialize: (val?: { data: unknown }) => unknown;
 };
 
-export class Pair implements IPair<Entity, Archetype> {
+export class Pair implements IPair<Archetype, Entity, Pair> {
   relationship: Entity;
   target: Entity;
   backLinksComponent: Set<Archetype> = new Set();
@@ -74,17 +74,6 @@ export class Pair implements IPair<Entity, Archetype> {
   }
 }
 
-export enum IdType {
-  Tag,
-  Component,
-  RelationshipTag,
-  RelationshipComponent,
-}
-
-export function isPair(id: Id): id is Pair {
-  return id.target !== undefined;
-}
-
 type IdWithData = Id & { initializer: Initializer };
 
 export function hasData(id: Id): id is IdWithData {
@@ -97,61 +86,4 @@ type IdWithDefaultInitialize = IdWithData & {
 
 export function canDefaultInitialize(id: Id): id is IdWithDefaultInitialize {
   return !hasData(id) || id.initializer.canDefaultInitialize;
-}
-
-export function getRelationshipTargets(
-  entity: Entity,
-  relationship: Entity,
-): Set<Entity> {
-  return new Set(
-    entity.archetype.components
-      .keys()
-      .filter((component) => isPair(component))
-      .filter((pair) => pair.relationship === relationship)
-      .map((pair) => pair.target),
-  );
-}
-
-export function getARelationshipPair(
-  entity: Entity,
-  relationship: Entity,
-): Pair | undefined {
-  return entity.archetype.components
-    .keys()
-    .filter((component) => isPair(component))
-    .find((pair) => pair.relationship === relationship);
-}
-
-export function getARelationshipTarget(
-  entity: Entity,
-  relationship: Entity,
-): Entity | undefined {
-  return entity.archetype.components
-    .keys()
-    .filter((component) => isPair(component))
-    .find((pair) => pair.relationship === relationship)?.target;
-}
-
-export function isInUseAsComponent(entity: Entity): boolean {
-  return (
-    (entity.backLinksComponent !== undefined &&
-      entity.backLinksComponent.size > 0) ||
-    (entity.backLinksRelationship !== undefined &&
-      entity.backLinksRelationship.size > 0)
-  );
-}
-
-export function hasAnyRelationship(
-  entity: Entity,
-  relationship: Entity,
-): boolean {
-  for (const component of entity.archetype.components) {
-    if (
-      component.target !== undefined &&
-      component.relationship === relationship
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
