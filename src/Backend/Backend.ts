@@ -1,5 +1,6 @@
+import { Archetype } from "./Archetype";
 import { AtomicOperationManager } from "./AtomicOperationManager";
-import { Archetype } from "./Core/Archetype";
+import { ensureRelationshipId } from "./ensureRelationshipId";
 import {
   Entity,
   getARelationshipTarget,
@@ -9,14 +10,13 @@ import {
   Id,
   isPair,
   Pair,
-} from "./Core/EntityData";
-import { HookCallback, Operation, Phase } from "./Core/Hooks";
-import { LinkType } from "./Core/Links";
-import { runAllHooks } from "./Core/runAllHooks";
-import { ECSStorage } from "./Core/Storage";
-import { ensureRelationshipId } from "./ensureRelationshipId";
+} from "./EntityData";
+import { HookCallback, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { makeQuery, Query } from "./Query";
+import { runAllHooks } from "./runAllHooks";
+import { LinkType } from "./Storage/Links";
+import { ECSStorage } from "./Storage/Storage";
 
 export class Backend {
   storage = new ECSStorage<Archetype, Entity, Pair>(Archetype, Entity);

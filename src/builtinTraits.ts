@@ -1,4 +1,5 @@
 import { Backend, Operation, Phase } from "./Backend";
+import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
 import {
   canDefaultInitialize,
   Entity,
@@ -6,9 +7,8 @@ import {
   getRelationshipTargets,
   isInUseAsComponent,
   Pair,
-} from "./Backend/Core/EntityData";
-import { HookCallback } from "./Backend/Core/Hooks";
-import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
+} from "./Backend/EntityData";
+import { HookCallback } from "./Backend/Hooks";
 import { makeQuery, Query, wildcard } from "./Backend/Query";
 import { down, traverseRelationship } from "./Backend/RelationshipTraversal";
 

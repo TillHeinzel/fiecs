@@ -1,7 +1,7 @@
+import { Links } from "./Core/Links";
+import { IArchetype } from "./Core/Storage";
 import { Entity, Id, Pair } from "./EntityData";
 import { Hooks } from "./Hooks";
-import { Links } from "./Links";
-import { IArchetype } from "./Storage";
 
 export class Archetype implements IArchetype<Archetype, Entity, Pair> {
   readonly components: ReadonlySet<Id>;

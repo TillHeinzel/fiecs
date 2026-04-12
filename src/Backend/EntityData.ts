@@ -1,6 +1,6 @@
 import { Archetype } from "./Archetype";
 import { Hooks } from "./Hooks";
-import { IEntity, IPair } from "./Storage";
+import { IEntity, IPair } from "./Storage/Storage";
 
 export type Id = Entity | Pair;
 
@@ -97,32 +97,6 @@ type IdWithDefaultInitialize = IdWithData & {
 
 export function canDefaultInitialize(id: Id): id is IdWithDefaultInitialize {
   return !hasData(id) || id.initializer.canDefaultInitialize;
-}
-
-export function idType(id: Id): IdType {
-  if (!hasData(id) && !isPair(id)) {
-    return IdType.Tag;
-  }
-  if (hasData(id) && !isPair(id)) {
-    return IdType.Component;
-  }
-  if (!hasData(id) && isPair(id)) {
-    return IdType.RelationshipTag;
-  }
-  // (hasData(id) && isPair(id))
-  return IdType.RelationshipComponent;
-}
-
-export function getRelationshipPairs(
-  entity: Entity,
-  relationship: Entity,
-): Set<Pair> {
-  return new Set(
-    entity.archetype.components
-      .keys()
-      .filter((component) => isPair(component))
-      .filter((pair) => pair.relationship === relationship),
-  );
 }
 
 export function getRelationshipTargets(
