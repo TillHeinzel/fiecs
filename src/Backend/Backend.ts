@@ -59,7 +59,7 @@ export class Backend {
         if (val === undefined) {
           if (!canDefaultInitialize) {
             throw new Error(
-              `Component "${newComponent.printName()}" cannot be default initialized`,
+              `Component "${this.getDisplayName(newComponent)}" cannot be default initialized`,
             );
           }
           return parse(undefined);
@@ -98,6 +98,14 @@ export class Backend {
 
     this.nameMap.setLookupName(entity, name);
     entity.name = name;
+  }
+
+  getDisplayName(id: Id): string {
+    if (isPair(id)) {
+      return `(${this.getDisplayName(id.relationship)}, ${this.getDisplayName(id.target)})`;
+    } else {
+      return id.name ?? "-unnamed-";
+    }
   }
 
   lookupEntity(name: string) {
@@ -194,7 +202,7 @@ export class Backend {
 
   set(entity: Entity, id: Id, newVal: unknown) {
     if (!hasData(id)) {
-      throw new Error(`"${id.printName()}" has no data to be set`);
+      throw new Error(`"${this.getDisplayName(id)}" has no data to be set`);
     }
 
     if (!this.has(entity, id)) {

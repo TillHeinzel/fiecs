@@ -87,7 +87,7 @@ export function builtinTraits(backend: Backend) {
     (pair, entity) => {
       if (isInUseAsComponent(entity)) {
         throw new Error(
-          `Component "${pair.relationship.printName()}" is a Trait and cannot be added to a component that is already in use!`,
+          `Component "${backend.getDisplayName(pair.relationship)}" is a Trait and cannot be added to a component that is already in use!`,
         );
       }
     },
@@ -102,7 +102,7 @@ export function builtinTraits(backend: Backend) {
     makeQuery(Relationship),
     (component) => {
       throw new Error(
-        `Component "${component.printName()}" is purely a relationship and cannot be used as a component`,
+        `Component "${backend.getDisplayName(component)}" is purely a relationship and cannot be used as a component`,
       );
     },
   );
@@ -114,7 +114,7 @@ export function builtinTraits(backend: Backend) {
     (pair) => {
       if (!backend.has(pair.relationship, Trait)) {
         throw new Error(
-          `Component "${pair.target.printName()}" is purely a relationship and cannot be used as a target of a relationship`,
+          `Component "${backend.getDisplayName(pair.target)}" is purely a relationship and cannot be used as a target of a relationship`,
         );
       }
     },
@@ -135,7 +135,7 @@ export function builtinTraits(backend: Backend) {
 
       if (target === entity) {
         throw new Error(
-          `Relationship "${relationship.printName()}" is acyclic and cannot target the entity it is added to`,
+          `Relationship "${backend.getDisplayName(relationship)}" is acyclic and cannot target the entity it is added to`,
         );
       }
 
@@ -143,7 +143,7 @@ export function builtinTraits(backend: Backend) {
         (currentTarget) => {
           if (currentTarget === entity) {
             throw new Error(
-              `Relationship "${relationship.printName()}" is acyclic and cannot be added to an entity that would create a cycle`,
+              `Relationship "${backend.getDisplayName(relationship)}" is acyclic and cannot be added to an entity that would create a cycle`,
             );
           }
         },
@@ -183,7 +183,7 @@ export function builtinTraits(backend: Backend) {
 
       if (!canDefaultInitialize(target)) {
         throw new Error(
-          `Relationship "${relationship.printName()}" is marked as TargetMustBeDefaultInitializable while target "${target.printName()}" has data and is not default initializable`,
+          `Relationship "${backend.getDisplayName(relationship)}" is marked as TargetMustBeDefaultInitializable while target "${backend.getDisplayName(target)}" has data and is not default initializable`,
         );
       }
     },
@@ -276,7 +276,7 @@ export function builtinTraits(backend: Backend) {
     (component, entity) => {
       if (entity !== component) {
         throw new Error(
-          `Component "${component.printName()}" is a singleton and cannot be added to entities other than itself`,
+          `Component "${backend.getDisplayName(component)}" is a singleton and cannot be added to entities other than itself`,
         );
       }
     },
@@ -315,7 +315,7 @@ export function builtinTraits(backend: Backend) {
     makeQuery(Target),
     (component) => {
       throw new Error(
-        `Entity "${component.printName()}" is marked as a Target and cannot be used as a component`,
+        `Entity "${backend.getDisplayName(component)}" is marked as a Target and cannot be used as a component`,
       );
     },
   );
@@ -326,7 +326,7 @@ export function builtinTraits(backend: Backend) {
     makeQuery(Target),
     (pair) => {
       throw new Error(
-        `Entity "${pair.relationship.printName()}" is marked as a Target and cannot be used as a relationship`,
+        `Entity "${backend.getDisplayName(pair.relationship)}" is marked as a Target and cannot be used as a relationship`,
       );
     },
   );

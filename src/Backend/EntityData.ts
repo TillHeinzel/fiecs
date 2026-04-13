@@ -17,9 +17,7 @@ export class Entity implements IEntity<Archetype, Entity, Pair> {
   target: undefined = undefined;
 
   name?: string;
-  printName(): string | undefined {
-    return this.name;
-  }
+
   hooks: Hooks = new Hooks();
 
   initializer?: Initializer;
@@ -37,10 +35,6 @@ export class Pair implements IPair<Archetype, Entity, Pair> {
   backLinksComponent: Set<Archetype> = new Set();
 
   initializer?: Initializer;
-
-  printName(): string | undefined {
-    return `(${this.relationship.name}, ${this.target.name})`;
-  }
 
   constructor(type: Entity, target: Entity) {
     this.target = target;
