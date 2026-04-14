@@ -1,9 +1,7 @@
-import { Entity, Id } from "./EntityData";
+export class Hooks<Entity, Pair> {
+  private phases: Map<Phase, PhaseContainer<Entity, Pair>> = new Map();
 
-export class Hooks {
-  private phases: Map<Phase, PhaseContainer> = new Map();
-
-  add(phase: Phase, operation: Operation, hook: HookCallback) {
+  add(phase: Phase, operation: Operation, hook: HookCallback<Entity, Pair>) {
     const phaseContainer = (() => {
       const existing = this.phases.get(phase);
       if (existing) {
@@ -25,7 +23,7 @@ export class Hooks {
     }
   }
 
-  run(phase: Phase, operation: Operation, id: Id, entity: Entity) {
+  run(phase: Phase, operation: Operation, id: Entity | Pair, entity: Entity) {
     const phaseContainer = this.phases.get(phase);
     if (phaseContainer === undefined) return new Set();
 
@@ -46,13 +44,16 @@ export class Hooks {
   }
 }
 
-class PhaseContainer {
-  asComponent = new Set<HookCallback>();
-  asRelationship = new Set<HookCallback>();
-  asTarget = new Set<HookCallback>();
+class PhaseContainer<Entity, Pair> {
+  asComponent = new Set<HookCallback<Entity, Pair>>();
+  asRelationship = new Set<HookCallback<Entity, Pair>>();
+  asTarget = new Set<HookCallback<Entity, Pair>>();
 }
 
-export type HookCallback = (id: Id, entity: Entity) => void;
+export type HookCallback<Entity, Pair> = (
+  id: Entity | Pair,
+  entity: Entity,
+) => void;
 
 export enum Phase {
   preAdd,

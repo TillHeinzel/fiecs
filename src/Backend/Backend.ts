@@ -1,20 +1,10 @@
-import { Archetype } from "./Archetype";
 import { AtomicOperationManager } from "./AtomicOperationManager";
+import { Archetype, Entity, Id, Pair } from "./BasicObjects";
 import { ensureRelationshipId } from "./ensureRelationshipId";
-import { Entity, hasData, Id, Pair } from "./EntityData";
-import { HookCallback, Operation, Phase } from "./Hooks";
+import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { makeQuery, Query } from "./Query";
-import { runAllHooks } from "./runAllHooks";
-import {
-  getARelationshipPair,
-  getARelationshipTarget,
-  getRelationshipTargets,
-  hasAnyRelationship,
-  isPair,
-} from "./Storage/IEntity";
-import { LinkType } from "./Storage/Links";
-import { ECSStorage } from "./Storage/Storage";
+import { ECSStorage, LinkType } from "./Storage";
 
 export class Backend {
   storage = new ECSStorage<Archetype, Entity, Pair>(Archetype, Entity);
@@ -43,36 +33,7 @@ export class Backend {
   createComponent(parse: (val: unknown) => unknown) {
     const newComponent = this.createEntity();
 
-    newComponent.initializer = (() => {
-      if (parse === undefined) return undefined;
-
-      const canDefaultInitialize = (() => {
-        try {
-          parse(undefined);
-        } catch {
-          return false;
-        }
-        return true;
-      })();
-
-      const tryInitialize = (val?: { data: unknown }) => {
-        if (val === undefined) {
-          if (!canDefaultInitialize) {
-            throw new Error(
-              `Component "${this.getDisplayName(newComponent)}" cannot be default initialized`,
-            );
-          }
-          return parse(undefined);
-        }
-        try {
-          return parse(val.data);
-        } catch {
-          throw new Error("Invalid component data");
-        }
-      };
-
-      return { canDefaultInitialize, tryInitialize };
-    })();
+    newComponent.addDataInitializer(parse);
 
     return newComponent;
   }
@@ -101,7 +62,7 @@ export class Backend {
   }
 
   getDisplayName(id: Id): string {
-    if (isPair(id)) {
+    if (id.isPair()) {
       return `(${this.getDisplayName(id.relationship)}, ${this.getDisplayName(id.target)})`;
     } else {
       return id.name ?? "-unnamed-";
@@ -117,7 +78,7 @@ export class Backend {
   }
 
   destruct(entity: Entity) {
-    if (hasData(entity)) {
+    if (entity.hasData()) {
       throw new Error("Components cannot be destructed (by default)");
     }
 
@@ -164,7 +125,7 @@ export class Backend {
       operation.remove(id);
       operation.delete(id);
 
-      runAllHooks(Phase.postRemove, id, entity);
+      id.runHooksFor(Phase.postRemove).on(entity);
     });
   }
 
@@ -186,33 +147,29 @@ export class Backend {
         if (operation.isAdding(id)) return;
 
         // pre hooks
-        runAllHooks(Phase.preAdd, id, entity);
+        id.runHooksFor(Phase.preAdd).on(entity);
 
         // add this
         operation.add(id);
-        if (hasData(id)) {
-          operation.set(id, id.initializer.tryInitialize(initialData));
+        if (id.hasData()) {
+          operation.set(id, id.tryInitialize(initialData));
         }
 
         // post hooks
-        runAllHooks(Phase.postAdd, id, entity);
+        id.runHooksFor(Phase.postAdd).on(entity);
       },
     );
   }
 
   set(entity: Entity, id: Id, newVal: unknown) {
-    if (!hasData(id)) {
+    if (!id.hasData()) {
       throw new Error(`"${this.getDisplayName(id)}" has no data to be set`);
     }
 
     if (!this.has(entity, id)) {
       this.add(entity, id, { data: newVal });
     } else {
-      this.storage.set(
-        entity,
-        id,
-        id.initializer.tryInitialize({ data: newVal }),
-      );
+      this.storage.set(entity, id, id.tryInitialize({ data: newVal }));
     }
   }
 
@@ -221,26 +178,30 @@ export class Backend {
   }
 
   hasAnyRelationship(entity: Entity, relationship: Entity) {
-    return hasAnyRelationship(entity, relationship);
+    return entity.hasAnyRelationship(relationship);
   }
 
   getRelationshipTargets(entity: Entity, relationship: Entity): Set<Entity> {
-    return getRelationshipTargets(entity, relationship);
+    return new Set(
+      Array.from(entity.getRelationshipPairs(relationship)).map(
+        (pair) => pair.target,
+      ),
+    );
   }
 
   getARelationshipTarget(
     entity: Entity,
     relationship: Entity,
   ): Entity | undefined {
-    return getARelationshipTarget(entity, relationship);
+    return entity.getARelationshipPair(relationship)?.target;
   }
 
   getARelationshipPair(entity: Entity, relationship: Entity): Pair | undefined {
-    return getARelationshipPair(entity, relationship);
+    return entity.getARelationshipPair(relationship);
   }
 
   #checkValid(id: Id) {
-    if (isPair(id)) {
+    if (id.isPair()) {
       if (!this.entities.has(id.relationship)) {
         throw new Error("Component does not exist in ECS");
       }
@@ -255,6 +216,10 @@ export class Backend {
     }
   }
 
+  canDefaultInitialize(id: Id): boolean {
+    return !id.hasData() || id.canDefaultInitialize();
+  }
+
   addHook(
     phase: Phase,
     operation: Operation,
@@ -262,11 +227,11 @@ export class Backend {
     callback: HookCallback,
   ) {
     query.forEachArchetype((archetype) => {
-      archetype.hooks.add(phase, operation, callback);
+      archetype.addHook(phase, operation, callback);
     });
     this.storage.addNewArchetypeCallbacks.add((archetype) => {
       if (query.matches(archetype)) {
-        archetype.hooks.add(phase, operation, callback);
+        archetype.addHook(phase, operation, callback);
       }
     });
   }
@@ -277,6 +242,8 @@ export class Backend {
     entity: Entity,
     callback: HookCallback,
   ) {
-    entity.hooks.add(phase, operation, callback);
+    entity.addHook(phase, operation, callback);
   }
 }
+
+export type HookCallback = HookCallbackGeneric<Entity, Pair>;

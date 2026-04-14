@@ -1182,9 +1182,7 @@ describe("relationships", () => {
     expect(LikesAlice).toBeInstanceOf(RelationshipTagHandle);
 
     // @ts-expect-error // should not be allowed in ts, but needs to be tested
-    expect(() => bob.add(LikesAlice, clint)).toThrow(
-      "Cannot use a concrete relationship as relationship for new pairs",
-    );
+    expect(() => bob.add(LikesAlice, clint)).toThrow("Bad arguments for add");
   });
 
   test("Trying to create concrete relationships with entities that have been deleted throws", () => {

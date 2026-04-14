@@ -1,5 +1,4 @@
-import { Entity } from "./EntityData";
-import { getRelationshipTargets } from "./Storage/IEntity";
+import { Entity } from "../BasicObjects";
 
 export function traverseRelationship(
   relationship: Entity,
@@ -62,5 +61,8 @@ export function up(entity: Entity, relationship: Entity) {
 }
 
 export function down(entity: Entity, relationship: Entity) {
-  return getRelationshipTargets(entity, relationship).keys();
+  return entity
+    .getRelationshipPairs(relationship)
+    .keys()
+    .map((pair) => pair.target);
 }

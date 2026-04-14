@@ -1,15 +1,18 @@
-import { IArchetype } from "./IArchetype";
-import { IEntity, IPair, isAlive } from "./IEntity";
+import { IStorageArchetype } from "./IArchetype";
+import { IStorageEntity } from "./IEntity";
+import { IStoragePair } from "./IPair";
 import { LinkType, reverseLinkType } from "./Links";
 
 export class ECSStorage<
-  Archetype extends IArchetype<Archetype, Entity, Pair>,
-  Entity extends IEntity<Archetype, Entity, Pair>,
-  Pair extends IPair<Archetype, Entity, Pair>,
+  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
+  Entity extends IStorageEntity<Archetype, Entity, Pair>,
+  Pair extends IStoragePair<Archetype, Entity, Pair>,
 > {
   constructor(
-    makeArchetype: { new (components: ReadonlySet<Entity | Pair>): Archetype },
-    makeEntity: { new (): Entity },
+    makeArchetype: {
+      new (props: { components: ReadonlySet<Entity | Pair> }): Archetype;
+    },
+    makeEntity: { new (o: object): Entity },
   ) {
     this.makeArchetype = makeArchetype;
     this.makeEntity = makeEntity;
@@ -22,11 +25,11 @@ export class ECSStorage<
   makeEntity;
 
   newArchetype(components: ReadonlySet<Entity | Pair>) {
-    return new this.makeArchetype(components);
+    return new this.makeArchetype({ components });
   }
 
   newEntity() {
-    const newEntity = new this.makeEntity();
+    const newEntity = new this.makeEntity({});
     this.emptyArchetype.entities.add(newEntity);
     newEntity.archetype = this.emptyArchetype;
     return newEntity;
@@ -120,7 +123,7 @@ export class ECSStorage<
   }
 
   has(entity: Entity, id: Entity | Pair) {
-    if (!isAlive(entity)) return false;
+    if (!entity.isAlive()) return false;
     return entity.archetype.components.has(id);
   }
 
@@ -138,7 +141,7 @@ export class ECSStorage<
     toAdd: Set<Entity | Pair>,
     toRemove: Set<Entity | Pair>,
   ) {
-    if (!isAlive(entity)) return;
+    if (!entity.isAlive()) return;
 
     if (toAdd.size === 0 && toRemove.size === 0) return;
 

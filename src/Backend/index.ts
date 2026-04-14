@@ -1,3 +1,4 @@
 export * from "./Backend";
-export { Entity, Pair } from "./EntityData";
-export { Operation, Phase } from "./Hooks";
+export type { HookCallback } from "./Backend";
+export { Entity, Pair } from "./BasicObjects";
+export { Operation, Phase } from "./Hooks/Hooks";

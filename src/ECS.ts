@@ -221,23 +221,26 @@ export class EntityHandle {
   add(fullRelationship: AnyRelationshipHandle): void;
   add(relationship: AnyComponentHandle, target: EntityHandle): void;
   add(first: AnyIdHandle, second?: EntityHandle) {
-    if (first.data instanceof Entity && second === undefined) {
+    if (first instanceof EntityHandle && second === undefined) {
       this.#backend.add(this.data, first.data);
+      return;
     }
-    if (first.data instanceof Entity && second !== undefined) {
+    if (first instanceof EntityHandle && second !== undefined) {
       this.#backend.add(
         this.data,
         this.#backend.relationship(first.data, second.data),
       );
+      return;
     }
-    if (first.data instanceof Pair && second === undefined) {
+    if (
+      (first instanceof RelationshipTagHandle ||
+        first instanceof RelationshipComponentHandle) &&
+      second === undefined
+    ) {
       this.#backend.add(this.data, first.data);
+      return;
     }
-    if (first.data instanceof Pair && second !== undefined) {
-      throw new Error(
-        "Cannot use a concrete relationship as relationship for new pairs",
-      );
-    }
+    throw new Error("Bad arguments for add");
   }
 
   set<T extends ComponentDataSchema>(

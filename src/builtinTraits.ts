@@ -1,13 +1,16 @@
-import { Backend, Operation, Phase } from "./Backend";
-import { ensureRelationshipId } from "./Backend/ensureRelationshipId";
-import { canDefaultInitialize, Entity, Pair } from "./Backend/EntityData";
-import { HookCallback } from "./Backend/Hooks";
-import { makeQuery, Query, wildcard } from "./Backend/Query";
-import { down, traverseRelationship } from "./Backend/RelationshipTraversal";
 import {
-  getRelationshipTargets,
-  isInUseAsComponent,
-} from "./Backend/Storage/IEntity";
+  Backend,
+  Entity,
+  HookCallback,
+  Operation,
+  Pair,
+  Phase,
+} from "./Backend";
+import { makeQuery, Query, wildcard } from "./Backend/Query";
+import {
+  down,
+  traverseRelationship,
+} from "./Backend/Storage/RelationshipTraversal";
 
 // TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
 
@@ -85,7 +88,7 @@ export function builtinTraits(backend: Backend) {
     Operation.asRelationship,
     makeQuery(Trait),
     (pair, entity) => {
-      if (isInUseAsComponent(entity)) {
+      if (entity.isInUseAsComponent()) {
         throw new Error(
           `Component "${backend.getDisplayName(pair.relationship)}" is a Trait and cannot be added to a component that is already in use!`,
         );
@@ -164,7 +167,7 @@ export function builtinTraits(backend: Backend) {
     makeQuery(RelationshipHasNoDataSpecialTag),
     (component, entity) => {
       if (component !== RelationshipHasNoData) return;
-      entity.relationshipHasNoData = true;
+      entity._relationshipHasNoData = true;
     },
   );
 
@@ -181,7 +184,7 @@ export function builtinTraits(backend: Backend) {
       const relationship = pair.relationship;
       const target = pair.target;
 
-      if (!canDefaultInitialize(target)) {
+      if (!backend.canDefaultInitialize(target)) {
         throw new Error(
           `Relationship "${backend.getDisplayName(relationship)}" is marked as TargetMustBeDefaultInitializable while target "${backend.getDisplayName(target)}" has data and is not default initializable`,
         );
@@ -201,10 +204,11 @@ export function builtinTraits(backend: Backend) {
     Operation.asRelationship,
     makeQuery([With, wildcard]),
     (pair, entity) => {
-      getRelationshipTargets(pair.relationship, With)
+      backend
+        .getRelationshipTargets(pair.relationship, With)
         .keys()
         .forEach((withComp) =>
-          backend.add(entity, ensureRelationshipId(withComp, pair.target)),
+          backend.add(entity, backend.relationship(withComp, pair.target)),
         );
     },
   );
@@ -245,7 +249,7 @@ export function builtinTraits(backend: Backend) {
             ?.get(pair.relationship)
             ?.backLinksComponent?.keys()
             .flatMap((archetype) => archetype.entities)
-            ?.map((withComp) => ensureRelationshipId(withComp, pair.target))
+            ?.map((withComp) => backend.relationship(withComp, pair.target))
             .forEach((withedTarget) => {
               backend.remove(entity, withedTarget);
             });
@@ -260,7 +264,8 @@ export function builtinTraits(backend: Backend) {
     Operation.asComponent,
     makeQuery([With, wildcard]),
     (component, entity) => {
-      getRelationshipTargets(component, With)
+      backend
+        .getRelationshipTargets(component, With)
         .keys()
         .forEach((withId) => backend.add(entity, withId));
     },
@@ -347,12 +352,13 @@ export function builtinTraits(backend: Backend) {
       if (currentPair !== undefined) {
         backend.remove(entity, currentPair);
 
-        getRelationshipTargets(pair.relationship, With)
+        backend
+          .getRelationshipTargets(pair.relationship, With)
           .keys()
           .forEach((withComp) =>
             backend.remove(
               entity,
-              ensureRelationshipId(withComp, currentPair.target),
+              backend.relationship(withComp, currentPair.target),
             ),
           );
       }

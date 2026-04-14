@@ -1,20 +1,23 @@
-import { Entity, Pair } from "./EntityData";
+import { Entity, Pair } from "./BasicObjects";
 
-export function ensureRelationshipId(type: Entity, target: Entity): Pair {
+export function ensureRelationshipId(
+  relationship: Entity,
+  target: Entity,
+): Pair {
   return lookupRelationshipId() ?? createRelationshipId();
 
   function lookupRelationshipId() {
-    return type.backLinksRelationship?.get(target);
+    return relationship.backLinksRelationship?.get(target);
   }
 
   function createRelationshipId() {
-    const newId = new Pair(type, target);
-    if (type.backLinksRelationship === undefined)
-      type.backLinksRelationship = new Map();
-    type.backLinksRelationship.set(target, newId);
+    const newId = new Pair({ relationship, target });
+    if (relationship.backLinksRelationship === undefined)
+      relationship.backLinksRelationship = new Map();
+    relationship.backLinksRelationship.set(target, newId);
     if (target.backLinksTarget === undefined)
       target.backLinksTarget = new Map();
-    target.backLinksTarget.set(type, newId);
+    target.backLinksTarget.set(relationship, newId);
     return newId;
   }
 }

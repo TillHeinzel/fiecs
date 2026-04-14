@@ -1,6 +1,4 @@
-import { Archetype } from "./Archetype";
-import { Entity, Id, Pair } from "./EntityData";
-import { isPair } from "./Storage/IEntity";
+import { Archetype, Entity, Id, Pair } from "./BasicObjects";
 
 export type Query = {
   forEachArchetype(callback: (archetype: Archetype) => void): void;
@@ -70,7 +68,7 @@ class WildcardQuery implements Query {
   matches(archetype: Archetype): boolean {
     return archetype.components
       .keys()
-      .filter((component) => isPair(component))
+      .filter((component) => component.isPair())
       .some((pair) => pair.relationship === this.relationship);
   }
 

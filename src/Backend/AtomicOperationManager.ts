@@ -1,7 +1,5 @@
-import { Archetype } from "./Archetype";
-import { Entity, Id, Pair } from "./EntityData";
-import { LinkType } from "./Storage/Links";
-import { ECSStorage } from "./Storage/Storage";
+import { Archetype, Entity, Id, Pair } from "./BasicObjects";
+import { ECSStorage, LinkType } from "./Storage";
 
 export class AtomicOperationManager {
   storage: ECSStorage<Archetype, Entity, Pair>;
