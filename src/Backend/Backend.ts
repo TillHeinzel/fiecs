@@ -10,41 +10,49 @@ export class Backend {
   storage = new ECSStorage<Archetype, Entity, Pair>(Archetype, Entity);
   nameMap = new NameMap();
   entities: Set<Entity> = new Set();
+  components: Map<unknown, Entity> = new Map();
 
   private operation = new AtomicOperationManager(this.storage);
 
-  createEntity(name?: string) {
-    if (name !== undefined && this.nameMap.hasLookupName(name)) {
-      throw new Error(`Entity with name ${name} already exists`);
-    }
-
+  private createEntity() {
     const newEntity = this.storage.createEntity();
     this.entities.add(newEntity);
-
-    if (name !== undefined) this.setName(newEntity, name);
 
     return newEntity;
   }
 
-  createTag(name?: string) {
-    return this.createEntity(name);
+  entity(name?: string) {
+    if (name !== undefined) {
+      const existingEntity = this.nameMap.lookup(name);
+      if (existingEntity) {
+        return existingEntity;
+      }
+    }
+
+    const newEntity = this.createEntity();
+    if (name !== undefined) this.setName(newEntity, name);
+    return newEntity;
   }
 
-  createComponent(parse: (val: unknown) => unknown) {
+  tag(name?: string) {
+    return this.entity(name);
+  }
+
+  component(parse: { parse: (val: unknown) => unknown }) {
+    const existingComponent = this.components.get(parse);
+    if (existingComponent) {
+      return existingComponent;
+    }
+
     const newComponent = this.createEntity();
 
     newComponent.addDataInitializer(parse);
+    this.components.set(parse, newComponent);
 
     return newComponent;
   }
 
-  makeExplicitRelationship(type: Entity, target: Entity) {
-    this.#checkValid(type);
-    this.#checkValid(target);
-    return ensureRelationshipId(type, target);
-  }
-
-  relationship(relationship: Entity, target: Entity) {
+  pair(relationship: Entity, target: Entity) {
     return ensureRelationshipId(relationship, target);
   }
 
@@ -115,7 +123,7 @@ export class Backend {
   }
 
   remove(entity: Entity, id: Id) {
-    this.#checkValid(id);
+    this.checkValid(id);
 
     if (!this.has(entity, id)) return;
 
@@ -135,7 +143,7 @@ export class Backend {
     initialData: { data: unknown } | undefined = undefined,
   ) {
     if (this.has(entity, id)) return;
-    this.#checkValid(id);
+    this.checkValid(id);
 
     this.operation.open(
       entity,
@@ -200,7 +208,7 @@ export class Backend {
     return entity.getARelationshipPair(relationship);
   }
 
-  #checkValid(id: Id) {
+  checkValid(id: Id) {
     if (id.isPair()) {
       if (!this.entities.has(id.relationship)) {
         throw new Error("Component does not exist in ECS");

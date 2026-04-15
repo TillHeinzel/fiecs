@@ -10,7 +10,7 @@ export interface IDataInitializeEntity<
   _relationshipHasNoData?: boolean;
   _initializer?: Initializer;
 
-  addDataInitializer(parse: (val: unknown) => unknown): void;
+  addDataInitializer(parser: { parse: (val: unknown) => unknown }): void;
 
   tryInitialize(init: { data: unknown } | undefined): unknown;
 
@@ -35,13 +35,13 @@ export const DataInitializeEntityMixin =
     {
       _initializer?: Initializer | undefined;
 
-      addDataInitializer(parse: (val: unknown) => unknown) {
+      addDataInitializer(parser: { parse: (val: unknown) => unknown }): void {
         this._initializer = (() => {
-          if (parse === undefined) return undefined;
+          if (parser === undefined) return undefined;
 
           const canDefaultInitialize = (() => {
             try {
-              parse(undefined);
+              parser.parse(undefined);
             } catch {
               return false;
             }
@@ -55,10 +55,10 @@ export const DataInitializeEntityMixin =
                   `Component "${this.name}" cannot be default initialized`,
                 );
               }
-              return parse(undefined);
+              return parser.parse(undefined);
             }
             try {
-              return parse(val.data);
+              return parser.parse(val.data);
             } catch {
               throw new Error("Invalid component data");
             }

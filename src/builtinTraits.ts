@@ -80,7 +80,7 @@ function addHookToEntity(
 }
 
 export function builtinTraits(backend: Backend) {
-  const Trait = backend.createTag("Trait");
+  const Trait = backend.tag("Trait");
   backend.add(Trait, Trait);
   addHook(
     backend,
@@ -96,7 +96,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const Relationship = backend.createTag("Relationship");
+  const Relationship = backend.tag("Relationship");
   backend.add(Relationship, Trait);
   addHook(
     backend,
@@ -123,7 +123,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const Acyclic = backend.createTag("Acyclic");
+  const Acyclic = backend.tag("Acyclic");
   backend.add(Acyclic, Trait);
   addHook(
     backend,
@@ -154,8 +154,8 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const RelationshipHasNoData = backend.createTag("RelationshipHasNoData");
-  const RelationshipHasNoDataSpecialTag = backend.createTag(
+  const RelationshipHasNoData = backend.tag("RelationshipHasNoData");
+  const RelationshipHasNoDataSpecialTag = backend.tag(
     "RelationshipHasNoDataSpecialTag",
   );
   backend.add(RelationshipHasNoData, Trait);
@@ -171,7 +171,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const TargetMustBeDefaultInitializable = backend.createTag(
+  const TargetMustBeDefaultInitializable = backend.tag(
     "TargetMustBeDefaultInitializable",
   );
   backend.add(TargetMustBeDefaultInitializable, Trait);
@@ -192,7 +192,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const With = backend.createTag("With");
+  const With = backend.tag("With");
   backend.add(With, Trait);
   backend.add(With, Relationship);
   backend.add(With, RelationshipHasNoData);
@@ -208,11 +208,11 @@ export function builtinTraits(backend: Backend) {
         .getRelationshipTargets(pair.relationship, With)
         .keys()
         .forEach((withComp) =>
-          backend.add(entity, backend.relationship(withComp, pair.target)),
+          backend.add(entity, backend.pair(withComp, pair.target)),
         );
     },
   );
-  const WithSpecialTag = backend.createTag("WithSpecialTag");
+  const WithSpecialTag = backend.tag("WithSpecialTag");
   backend.add(WithSpecialTag, Trait);
   backend.add(With, WithSpecialTag);
 
@@ -249,7 +249,7 @@ export function builtinTraits(backend: Backend) {
             ?.get(pair.relationship)
             ?.backLinksComponent?.keys()
             .flatMap((archetype) => archetype.entities)
-            ?.map((withComp) => backend.relationship(withComp, pair.target))
+            ?.map((withComp) => backend.pair(withComp, pair.target))
             .forEach((withedTarget) => {
               backend.remove(entity, withedTarget);
             });
@@ -271,7 +271,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const Singleton = backend.createTag("Singleton");
+  const Singleton = backend.tag("Singleton");
   backend.add(Singleton, Trait);
   addHook(
     backend,
@@ -287,7 +287,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const Symmetric = backend.createTag("Symmetric");
+  const Symmetric = backend.tag("Symmetric");
   backend.add(Symmetric, Trait);
   addHook(
     backend,
@@ -295,7 +295,7 @@ export function builtinTraits(backend: Backend) {
     Operation.asRelationship,
     makeQuery(Symmetric),
     (pair, entity) => {
-      backend.add(pair.target, backend.relationship(pair.relationship, entity));
+      backend.add(pair.target, backend.pair(pair.relationship, entity));
     },
   );
   addHook(
@@ -304,14 +304,11 @@ export function builtinTraits(backend: Backend) {
     Operation.asRelationship,
     makeQuery(Symmetric),
     (pair, entity) => {
-      backend.remove(
-        pair.target,
-        backend.relationship(pair.relationship, entity),
-      );
+      backend.remove(pair.target, backend.pair(pair.relationship, entity));
     },
   );
 
-  const Target = backend.createTag("Target");
+  const Target = backend.tag("Target");
   backend.add(Target, Trait);
   addHook(
     backend,
@@ -336,7 +333,7 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
-  const Exclusive = backend.createTag("Exclusive");
+  const Exclusive = backend.tag("Exclusive");
   backend.add(Exclusive, Trait);
   addHook(
     backend,
@@ -356,10 +353,7 @@ export function builtinTraits(backend: Backend) {
           .getRelationshipTargets(pair.relationship, With)
           .keys()
           .forEach((withComp) =>
-            backend.remove(
-              entity,
-              backend.relationship(withComp, currentPair.target),
-            ),
+            backend.remove(entity, backend.pair(withComp, currentPair.target)),
           );
       }
     },

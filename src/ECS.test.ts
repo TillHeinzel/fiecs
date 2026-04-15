@@ -17,23 +17,24 @@ describe("entities, names, aliveness", () => {
 
   test("create new entity", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
     expect(e).toBeInstanceOf(EntityHandle);
   });
 
   test("create new entity with name", () => {
     const ecs = new ECS();
-    const e = ecs.createNamedEntity("Bob");
+    const e = ecs.entity("Bob");
 
     expect(e.getName()).toBe("Bob");
   });
 
-  test("fail to create new entity with existing name", () => {
+  test("get original entity if name exists", () => {
     const ecs = new ECS();
-    ecs.createNamedEntity("Bob");
+    const e1 = ecs.entity("Bob");
+    const e2 = ecs.entity("Bob");
 
-    expect(() => ecs.createNamedEntity("Bob")).toThrow();
+    expect(e1.isSameEntityAs(e2)).toBe(true);
   });
 
   test("lookup nonexistent name is undefined", () => {
@@ -44,15 +45,15 @@ describe("entities, names, aliveness", () => {
 
   test("setting name to an already existing name throws", () => {
     const ecs = new ECS();
-    ecs.createNamedEntity("Bob");
-    const e2 = ecs.createEntity();
+    ecs.entity("Bob");
+    const e2 = ecs.entity();
 
     expect(() => e2.setName("Bob")).toThrow();
   });
 
   test("changing name means old name can no longer be used to lookup the entity", () => {
     const ecs = new ECS();
-    const e = ecs.createNamedEntity("Bob");
+    const e = ecs.entity("Bob");
     expect(e.getName()).toBe("Bob");
     expect(ecs.lookupEntity("Bob")).toBeInstanceOf(EntityHandle);
 
@@ -67,7 +68,7 @@ describe("entities, names, aliveness", () => {
   test("multiple entity objects target the same underlying data", () => {
     const ecs = new ECS();
 
-    const e1 = ecs.createNamedEntity("Bob");
+    const e1 = ecs.entity("Bob");
 
     expect(e1.getName()).toBe("Bob");
 
@@ -87,14 +88,14 @@ describe("entities, names, aliveness", () => {
 
   test("new entities are alive", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
     expect(e.isAlive()).toBe(true);
   });
 
   test("destructed entities are not alive", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     e.destruct();
 
     expect(e.isAlive()).toBe(false);
@@ -102,7 +103,7 @@ describe("entities, names, aliveness", () => {
 
   test("destructed entities cannot be looked up", () => {
     const ecs = new ECS();
-    const e = ecs.createNamedEntity("Bob");
+    const e = ecs.entity("Bob");
     e.destruct();
 
     expect(ecs.lookupEntity("Bob")).toBeUndefined();
@@ -111,16 +112,16 @@ describe("entities, names, aliveness", () => {
   test("destructed entities have no name", () => {
     const ecs = new ECS();
 
-    const e = ecs.createNamedEntity("Bob");
+    const e = ecs.entity("Bob");
     e.destruct();
     expect(e.getName()).toBeUndefined();
   });
 
   test("destructing an entity removes all its tags", () => {
     const ecs = new ECS();
-    const playerTag = ecs.createTag();
-    const aiTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const aiTag = ecs.tag();
+    const e = ecs.entity();
     e.add(playerTag);
     e.add(aiTag);
 
@@ -132,9 +133,9 @@ describe("entities, names, aliveness", () => {
 
   test("destructing an entity removes all its components", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
-    const mana = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
+    const mana = ecs.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
 
@@ -149,12 +150,12 @@ describe("entities, names, aliveness", () => {
   test("destructing an entity removes all its relationship tags", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -170,10 +171,10 @@ describe("entities, names, aliveness", () => {
   describe("removeFromAll", () => {
     test("removeFromAll removes the removed entity from all that have added it, but not as parts of relationships", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const likes = ecs.tag("likes");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -194,10 +195,10 @@ describe("entities, names, aliveness", () => {
 
     test("removeFromAll works for relationships", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const likes = ecs.tag("likes");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -218,12 +219,12 @@ describe("entities, names, aliveness", () => {
 
     test("removeFromAll works for explicit relationships", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const likes = ecs.tag("likes");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
-      const likesAlice = ecs.createRelationshipTag(likes, alice);
+      const likesAlice = ecs.pair(likes, alice);
 
       alice.add(likes);
       bob.add(likes);
@@ -244,12 +245,12 @@ describe("entities, names, aliveness", () => {
 
     test("removeFromAll throws if we try to removeFromAll with two parameters where the first is already a relationship", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const likes = ecs.tag("likes");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
-      const likesAlice = ecs.createRelationshipTag(likes, alice);
+      const likesAlice = ecs.pair(likes, alice);
 
       alice.add(likes);
       bob.add(likes);
@@ -263,10 +264,10 @@ describe("entities, names, aliveness", () => {
 
     test("removeFromAll removes any associated component data", () => {
       const ecs = new ECS();
-      const likes = ecs.createComponent(z.number().default(0));
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const likes = ecs.component(z.number().default(0));
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -289,12 +290,12 @@ describe("entities, names, aliveness", () => {
   describe("destructAllWith", () => {
     test("destructAllWith deletes all entities with a tag, but not those that have the tag as part of a relationship", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const apples = ecs.createEntity();
+      const likes = ecs.tag("likes");
+      const apples = ecs.entity();
 
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
@@ -311,12 +312,12 @@ describe("entities, names, aliveness", () => {
 
     test("destructAllWith works for relationships", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const apples = ecs.createEntity();
+      const likes = ecs.tag("likes");
+      const apples = ecs.entity();
 
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
@@ -332,14 +333,14 @@ describe("entities, names, aliveness", () => {
 
     test("destructAllWith works for explicit relationships", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const apples = ecs.createEntity();
+      const likes = ecs.tag("likes");
+      const apples = ecs.entity();
 
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
-      const likesApples = ecs.createRelationshipTag(likes, apples);
+      const likesApples = ecs.pair(likes, apples);
 
       alice.add(likes);
       bob.add(apples, likes);
@@ -355,14 +356,14 @@ describe("entities, names, aliveness", () => {
 
     test("destructAllWith throws if we try to destructAllWith with two parameters where the first is already a relationship", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const apples = ecs.createEntity();
+      const likes = ecs.tag("likes");
+      const apples = ecs.entity();
 
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
-      const likesApples = ecs.createRelationshipTag(likes, apples);
+      const likesApples = ecs.pair(likes, apples);
 
       alice.add(likes);
       bob.add(apples, likes);
@@ -376,12 +377,12 @@ describe("entities, names, aliveness", () => {
 
     test("destructAllWith removes associated archetypes and edges", () => {
       const ecs = new ECS();
-      const likes = ecs.createTag("likes");
-      const apples = ecs.createEntity();
+      const likes = ecs.tag("likes");
+      const apples = ecs.entity();
 
-      const alice = ecs.createNamedEntity("Alice");
-      const bob = ecs.createNamedEntity("Bob");
-      const clint = ecs.createNamedEntity("Clint");
+      const alice = ecs.entity("Alice");
+      const bob = ecs.entity("Bob");
+      const clint = ecs.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
@@ -404,44 +405,44 @@ describe("entities, names, aliveness", () => {
 describe("tags", () => {
   test("Creating a tag returns an EntityHandle object, as tags are just entities", () => {
     const ecs = new ECS();
-    const c = ecs.createTag();
+    const c = ecs.tag();
 
     expect(c).toBeInstanceOf(EntityHandle);
   });
 
   test("A tag can be created with a name", () => {
     const ecs = new ECS();
-    const player = ecs.createTag("Player");
+    const player = ecs.tag("Player");
 
     expect(player.getName()).toBe("Player");
   });
 
   test("setting a tag requires it being created first", () => {
     const ecs = new ECS();
-    const tag = ecs.createTag();
-    const e = ecs.createEntity();
+    const tag = ecs.tag();
+    const e = ecs.entity();
     expect(() => e.add(tag)).not.toThrow();
 
     const otherEcs = new ECS();
-    const deviantTag = otherEcs.createTag();
+    const deviantTag = otherEcs.tag();
     expect(() => e.add(deviantTag)).toThrow("Component does not exist in ECS");
   });
 
   test("adding a tag to an entity will show that it has that tag", () => {
     const ecs = new ECS();
-    const playerTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const e = ecs.entity();
     e.add(playerTag);
 
     expect(e.has(playerTag)).toBe(true);
-    const aiTag = ecs.createTag();
+    const aiTag = ecs.tag();
     expect(e.has(aiTag)).toBe(false);
   });
 
   test("removing a tag from an entity will show that it no longer has that tag", () => {
     const ecs = new ECS();
-    const playerTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const e = ecs.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
@@ -453,9 +454,9 @@ describe("tags", () => {
   test("adding a tag twice changes nothing", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const playerTag = ecs.createTag();
-    const aiTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const aiTag = ecs.tag();
+    const e = ecs.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
@@ -470,9 +471,9 @@ describe("tags", () => {
   test("removing tag the entity does not have does nothing", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const playerTag = ecs.createTag();
-    const aiTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const aiTag = ecs.tag();
+    const e = ecs.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
@@ -485,9 +486,9 @@ describe("tags", () => {
 
   test("clear removes all tags from the component", () => {
     const ecs = new ECS();
-    const playerTag = ecs.createTag();
-    const aiTag = ecs.createTag();
-    const e = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const aiTag = ecs.tag();
+    const e = ecs.entity();
     e.add(playerTag);
     e.add(aiTag);
     e.clear();
@@ -499,7 +500,7 @@ describe("tags", () => {
   test("Destructing a tag shows the tag to be nonalive", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag("likes");
+    const likes = ecs.tag("likes");
     expect(likes.isAlive()).toBe(true);
 
     likes.destruct();
@@ -509,8 +510,8 @@ describe("tags", () => {
 
   test("trying to add a destructed tag to an entity throws", () => {
     const ecs = new ECS();
-    const likes = ecs.createTag();
-    const bob = ecs.createNamedEntity("Bob");
+    const likes = ecs.tag();
+    const bob = ecs.entity("Bob");
     likes.destruct();
     expect(() => bob.add(likes)).toThrow("Component does not exist in ECS");
   });
@@ -518,9 +519,9 @@ describe("tags", () => {
   test("adding a tag to two entities with the same original archetype only requires one expensive lookup ", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const playerTag = ecs.createTag();
-    const e1 = ecs.createEntity();
-    const e2 = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const e1 = ecs.entity();
+    const e2 = ecs.entity();
     expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
     e1.add(playerTag);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -532,8 +533,8 @@ describe("tags", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const playerTag = ecs.createTag();
-    const e1 = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const e1 = ecs.entity();
 
     e1.add(playerTag);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -546,9 +547,9 @@ describe("tags", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const playerTag = ecs.createTag();
-    const aiTag = ecs.createTag();
-    const e1 = ecs.createEntity();
+    const playerTag = ecs.tag();
+    const aiTag = ecs.tag();
+    const e1 = ecs.entity();
 
     e1.add(playerTag);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -562,8 +563,8 @@ describe("tags", () => {
 
   test("entities can be used as tags on other entities, as tags are just entities", () => {
     const ecs = new ECS();
-    const bob = ecs.createNamedEntity("Bob");
-    const alice = ecs.createNamedEntity("Alice");
+    const bob = ecs.entity("Bob");
+    const alice = ecs.entity("Alice");
     alice.add(bob);
 
     expect(alice.has(bob)).toBe(true);
@@ -571,8 +572,8 @@ describe("tags", () => {
 
   test("Trying to set data on a tag throws", () => {
     const ecs = new ECS();
-    const tag = ecs.createTag();
-    const e = ecs.createEntity();
+    const tag = ecs.tag();
+    const e = ecs.entity();
     // @ts-expect-error // should not be allowed in ts, but needs to be tested
     expect(() => e.set(tag, 5)).toThrow("Invalid arguments for setData");
   });
@@ -603,13 +604,13 @@ describe("statistics", () => {
 
   test("if statistics is started, expensive archetype lookups are counted", () => {
     const ecs = new ECS();
-    const cheeseTag = ecs.createTag();
+    const cheeseTag = ecs.tag();
     ecs.startStatistics();
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     e.add(cheeseTag);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
-    const breadTag = ecs.createTag();
+    const breadTag = ecs.tag();
     e.add(breadTag);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(2);
   });
@@ -617,9 +618,9 @@ describe("statistics", () => {
   test("can lookup archetype count", () => {
     const ecs = new ECS();
     const initialArchetypeCount = ecs.getArchetypeCount();
-    const cheese = ecs.createTag();
+    const cheese = ecs.tag();
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     e.add(cheese);
     expect(ecs.getArchetypeCount()).toEqual(initialArchetypeCount + 1);
 
@@ -629,8 +630,8 @@ describe("statistics", () => {
 
   test("can lookup number of edges between archetypes", () => {
     const ecs = new ECS();
-    const cheese = ecs.createTag();
-    const e = ecs.createEntity();
+    const cheese = ecs.tag();
+    const e = ecs.entity();
 
     const initialEdgeCount = ecs.getArchetypeGraphEdgeCount();
 
@@ -651,19 +652,28 @@ describe("statistics", () => {
 describe("components", () => {
   test("Creating a component returns a ComponentHandle object", () => {
     const ecs = new ECS();
-    const c = ecs.createComponent(z.number());
+    const c = ecs.component(z.number());
 
     expect(c).toBeInstanceOf(ComponentHandle);
   });
 
+  test("registering a component twice with the same initializer returns the same component", () => {
+    const ecs = new ECS();
+
+    const initializer = z.number();
+    const c1 = ecs.component(initializer);
+    const c2 = ecs.component(initializer);
+    expect(c2.isSameEntityAs(c1)).toBe(true);
+  });
+
   test("adding a component requires it being created first", () => {
     const ecs = new ECS();
-    const c = ecs.createComponent(z.number().default(0));
-    const e = ecs.createEntity();
+    const c = ecs.component(z.number().default(0));
+    const e = ecs.entity();
     expect(() => e.add(c)).not.toThrow();
 
     const otherEcs = new ECS();
-    const deviantComponent = otherEcs.createComponent(z.number().default(0));
+    const deviantComponent = otherEcs.component(z.number().default(0));
 
     expect(() => e.add(deviantComponent)).toThrow(
       "Component does not exist in ECS",
@@ -672,8 +682,8 @@ describe("components", () => {
 
   test("adding a component means that component can be gotten back", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().default(0));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().default(0));
 
     e.add(health);
     expect(e.get(health)).toBe(0);
@@ -681,16 +691,16 @@ describe("components", () => {
 
   test("getting a non-existent component returns undefined", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
     expect(e.get(health)).toBeUndefined();
   });
 
   test("components are independent of each other", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
-    const mana = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
+    const mana = ecs.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
     expect(e.get(health)).toBe(100);
@@ -699,16 +709,16 @@ describe("components", () => {
 
   test("a component that has been added can be checked for existence", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().default(0));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().default(0));
     e.add(health);
     expect(e.has(health)).toBe(true);
   });
 
   test("removing a component means that component can no longer be gotten or checked for existence", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().default(0));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().default(0));
     e.add(health);
     expect(e.has(health)).toBe(true);
     e.remove(health);
@@ -718,9 +728,9 @@ describe("components", () => {
 
   test("If a component doesn't have a default, add throws", () => {
     const ecs = new ECS();
-    const health = ecs.createComponent(z.number());
+    const health = ecs.component(z.number());
     health.setName("health");
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     expect(() => e.add(health)).toThrow(
       'Component "health" cannot be default initialized',
     );
@@ -728,8 +738,8 @@ describe("components", () => {
 
   test("A components value can be set, and the updated value can be get", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().default(0));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().default(0));
     e.add(health);
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
@@ -737,24 +747,24 @@ describe("components", () => {
 
   test("setting a component automatically adds it", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().default(0));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().default(0));
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
   });
 
   test("set allows a component to have no default value", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
   });
 
   test("Setting a component with a bad type throws an error", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
     // @ts-expect-error // this should throw because "not a number" is not a number
     expect(() => e.set(health, "not a number")).toThrow(
       "Invalid component data",
@@ -763,8 +773,8 @@ describe("components", () => {
 
   test("Setting a component which doesn't fulfill the schema throws an error", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number().min(0).max(100));
+    const e = ecs.entity();
+    const health = ecs.component(z.number().min(0).max(100));
     expect(() => e.set(health, -1)).toThrow("Invalid component data");
     expect(() => e.set(health, 101)).toThrow("Invalid component data");
   });
@@ -772,8 +782,8 @@ describe("components", () => {
   test("Adding a component to an entity that already has it does nothing", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const health = ecs.createComponent(z.number().default(100));
-    const e = ecs.createEntity();
+    const health = ecs.component(z.number().default(100));
+    const e = ecs.entity();
     e.set(health, 50);
     e.add(health);
     expect(e.get(health)).toBe(50);
@@ -782,12 +792,12 @@ describe("components", () => {
 
   test("adding a component requires it being created first", () => {
     const ecs = new ECS();
-    const c = ecs.createComponent(z.number().default(0));
-    const e = ecs.createEntity();
+    const c = ecs.component(z.number().default(0));
+    const e = ecs.entity();
     expect(() => e.add(c)).not.toThrow();
 
     const otherEcs = new ECS();
-    const deviantComponent = otherEcs.createComponent(z.number().default(0));
+    const deviantComponent = otherEcs.component(z.number().default(0));
 
     expect(() => e.add(deviantComponent)).toThrow(
       "Component does not exist in ECS",
@@ -796,9 +806,9 @@ describe("components", () => {
 
   test("clearing an entity removes all components from the entity", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
-    const health = ecs.createComponent(z.number());
-    const mana = ecs.createComponent(z.number());
+    const e = ecs.entity();
+    const health = ecs.component(z.number());
+    const mana = ecs.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
     e.clear();
@@ -812,10 +822,10 @@ describe("components", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const health = ecs.createComponent(z.number());
+    const health = ecs.component(z.number());
 
-    const e1 = ecs.createEntity();
-    const e2 = ecs.createEntity();
+    const e1 = ecs.entity();
+    const e2 = ecs.entity();
     expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
     e1.set(health, 100);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -826,8 +836,8 @@ describe("components", () => {
   test("removing a component from an entity does not require and expensive lookup, because links are established on add", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const health = ecs.createComponent(z.number());
-    const e1 = ecs.createEntity();
+    const health = ecs.component(z.number());
+    const e1 = ecs.entity();
     e1.set(health, 100);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
     e1.remove(health);
@@ -837,9 +847,9 @@ describe("components", () => {
   test("when adding two components and then removing the first, each operation adds a link", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const health = ecs.createComponent(z.number());
-    const damage = ecs.createComponent(z.number());
-    const e1 = ecs.createEntity();
+    const health = ecs.component(z.number());
+    const damage = ecs.component(z.number());
+    const e1 = ecs.entity();
 
     e1.set(health, 100);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -853,9 +863,9 @@ describe("components", () => {
 
   test("A component can be set to undefined", () => {
     const ecs = new ECS();
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
-    const health = ecs.createComponent({ parse: (x: number | undefined) => x });
+    const health = ecs.component({ parse: (x: number | undefined) => x });
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
 
@@ -867,13 +877,13 @@ describe("components", () => {
 describe("relationships", () => {
   test("adding a relationship tag requires a created Tag or Component", () => {
     const ecs = new ECS();
-    const likes = ecs.createTag();
-    const bob = ecs.createEntity();
-    const apples = ecs.createEntity();
+    const likes = ecs.tag();
+    const bob = ecs.entity();
+    const apples = ecs.entity();
     expect(() => bob.add(likes, apples)).not.toThrow();
 
     const otherEcs = new ECS();
-    const deviantRelationshipTag = otherEcs.createTag();
+    const deviantRelationshipTag = otherEcs.tag();
     expect(() => bob.add(deviantRelationshipTag, apples)).toThrow(
       "Component does not exist in ECS",
     );
@@ -882,12 +892,12 @@ describe("relationships", () => {
   test("adding a relationship tag to an entity will show that it has that relationship tag", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
 
     expect(bob.has(eats, apples)).toBe(true);
@@ -897,10 +907,10 @@ describe("relationships", () => {
   test("removing a relationship tag from an entity will show that it no longer has that relationship tag, without affecting other relationships", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
-    const apples = ecs.createNamedEntity("apples");
-    const pears = ecs.createNamedEntity("pears");
-    const bob = ecs.createNamedEntity("bob");
+    const eats = ecs.tag();
+    const apples = ecs.entity("apples");
+    const pears = ecs.entity("pears");
+    const bob = ecs.entity("bob");
 
     bob.add(eats, apples);
     bob.add(eats, pears);
@@ -918,12 +928,12 @@ describe("relationships", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
@@ -939,10 +949,10 @@ describe("relationships", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const eats = ecs.createTag();
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
-    const bob = ecs.createEntity();
+    const eats = ecs.tag();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
+    const bob = ecs.entity();
 
     bob.add(eats, apples);
 
@@ -960,12 +970,12 @@ describe("relationships", () => {
   test("clear removes all relationship tags from the entity", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -981,11 +991,11 @@ describe("relationships", () => {
   test("adding a relationship tag to an entity will show that it has any of that relationship tag", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
+    const apples = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
 
     expect(bob.hasAnyRelationship(eats)).toBe(true);
@@ -994,12 +1004,12 @@ describe("relationships", () => {
   test("removing the last of a relationship type will show that the entity no longer has that relationship tag", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
+    const eats = ecs.tag();
 
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -1016,10 +1026,10 @@ describe("relationships", () => {
 
   test("we can get the targets for a relationship tag on an entity", () => {
     const ecs = new ECS();
-    const eats = ecs.createTag();
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
-    const bob = ecs.createEntity();
+    const eats = ecs.tag();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -1030,11 +1040,11 @@ describe("relationships", () => {
 
   test("we can get the first added target for a relationship tag on an entity", () => {
     const ecs = new ECS();
-    const eats = ecs.createTag();
-    const apples = ecs.createEntity();
-    const pears = ecs.createEntity();
+    const eats = ecs.tag();
+    const apples = ecs.entity();
+    const pears = ecs.entity();
 
-    const bob = ecs.createEntity();
+    const bob = ecs.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -1048,10 +1058,10 @@ describe("relationships", () => {
   test("adding a relationship tag to two entities with the same original archetype only requires one expensive lookup", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const relatesTo = ecs.createTag();
-    const e1 = ecs.createEntity();
-    const e2 = ecs.createEntity();
-    const e3 = ecs.createEntity();
+    const relatesTo = ecs.tag();
+    const e1 = ecs.entity();
+    const e2 = ecs.entity();
+    const e3 = ecs.entity();
     expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
     e1.add(relatesTo, e3);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -1063,9 +1073,9 @@ describe("relationships", () => {
     const ecs = new ECS();
     ecs.startStatistics();
 
-    const likes = ecs.createTag();
-    const bob = ecs.createEntity();
-    const alice = ecs.createEntity();
+    const likes = ecs.tag();
+    const bob = ecs.entity();
+    const alice = ecs.entity();
 
     bob.add(likes, alice);
     expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
@@ -1076,9 +1086,9 @@ describe("relationships", () => {
 
   test("Relationships can be components", () => {
     const ecs = new ECS();
-    const eats = ecs.createComponent(z.number().default(0));
-    const bob = ecs.createEntity();
-    const apples = ecs.createEntity();
+    const eats = ecs.component(z.number().default(0));
+    const bob = ecs.entity();
+    const apples = ecs.entity();
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.hasAnyRelationship(eats)).toBe(true);
@@ -1088,9 +1098,9 @@ describe("relationships", () => {
 
   test("Added relationship components can be get like normal components", () => {
     const ecs = new ECS();
-    const eats = ecs.createComponent(z.number().default(0));
-    const bob = ecs.createEntity();
-    const apples = ecs.createEntity();
+    const eats = ecs.component(z.number().default(0));
+    const bob = ecs.entity();
+    const apples = ecs.entity();
 
     bob.add(eats, apples);
     expect(bob.get(eats, apples)).toBe(0);
@@ -1098,9 +1108,9 @@ describe("relationships", () => {
 
   test("Relationship components can be set and get like normal components", () => {
     const ecs = new ECS();
-    const eats = ecs.createComponent(z.number().default(0));
-    const bob = ecs.createEntity();
-    const apples = ecs.createEntity();
+    const eats = ecs.component(z.number().default(0));
+    const bob = ecs.entity();
+    const apples = ecs.entity();
 
     bob.set(eats, apples, 5);
     expect(bob.get(eats, apples)).toBe(5);
@@ -1108,9 +1118,9 @@ describe("relationships", () => {
 
   test("If the target for a tag-relationship is a component, it's data is used", () => {
     const ecs = new ECS();
-    const eats = ecs.createComponent(z.number().default(0));
-    const bob = ecs.createEntity();
-    const apples = ecs.createEntity();
+    const eats = ecs.component(z.number().default(0));
+    const bob = ecs.entity();
+    const apples = ecs.entity();
 
     bob.set(apples, eats, 5);
     expect(bob.get(apples, eats)).toBe(5);
@@ -1118,9 +1128,9 @@ describe("relationships", () => {
 
   test("If both the first and second parts of a relationship are components, the associated data belongs to the first one", () => {
     const ecs = new ECS();
-    const eats = ecs.createComponent(z.number().default(0));
-    const bob = ecs.createEntity();
-    const apples = ecs.createComponent(z.string().default(""));
+    const eats = ecs.component(z.number().default(0));
+    const bob = ecs.entity();
+    const apples = ecs.component(z.string().default(""));
 
     bob.set(eats, apples, 5);
     expect(bob.get(eats, apples)).toBe(5);
@@ -1132,11 +1142,11 @@ describe("relationships", () => {
   test("concrete relationships can be created on the the ecs and world like tags & components", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag();
-    const bob = ecs.createEntity();
-    const alice = ecs.createEntity();
+    const likes = ecs.tag();
+    const bob = ecs.entity();
+    const alice = ecs.entity();
 
-    const bobLikesAlice = ecs.createRelationshipTag(likes, alice);
+    const bobLikesAlice = ecs.pair(likes, alice);
 
     expect(bobLikesAlice).toBeInstanceOf(RelationshipTagHandle);
 
@@ -1154,10 +1164,10 @@ describe("relationships", () => {
     expect(bob.hasAnyRelationship(likes)).toBe(false);
     expect(bob.getRelationshipTargets(likes)).toEqual(new Set());
 
-    const eats = ecs.createComponent(z.number().default(0));
-    const apples = ecs.createEntity();
+    const eats = ecs.component(z.number().default(0));
+    const apples = ecs.entity();
 
-    const bobEatsApples = ecs.createRelationshipComponent(eats, apples);
+    const bobEatsApples = ecs.pair(eats, apples);
 
     bob.set(bobEatsApples, 5);
 
@@ -1172,12 +1182,12 @@ describe("relationships", () => {
   test("concrete relationships cannot be added as relationships of new pairs", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag();
-    const bob = ecs.createEntity();
-    const alice = ecs.createEntity();
-    const clint = ecs.createEntity();
+    const likes = ecs.tag();
+    const bob = ecs.entity();
+    const alice = ecs.entity();
+    const clint = ecs.entity();
 
-    const LikesAlice = ecs.createRelationshipTag(likes, alice);
+    const LikesAlice = ecs.pair(likes, alice);
 
     expect(LikesAlice).toBeInstanceOf(RelationshipTagHandle);
 
@@ -1188,12 +1198,12 @@ describe("relationships", () => {
   test("Trying to create concrete relationships with entities that have been deleted throws", () => {
     const ecs = new ECS();
 
-    const eats = ecs.createTag();
-    const apples = ecs.createEntity();
+    const eats = ecs.tag();
+    const apples = ecs.entity();
 
     eats.destruct();
 
-    expect(() => ecs.createRelationshipTag(eats, apples)).toThrow(
+    expect(() => ecs.pair(eats, apples)).toThrow(
       "Component does not exist in ECS",
     );
   });
@@ -1203,17 +1213,17 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag removes the tag from all entities", () => {
     const ecs = new ECS();
 
-    const cheese = ecs.createTag("cheese");
-    const likes = ecs.createTag("likes");
+    const cheese = ecs.tag("cheese");
+    const likes = ecs.tag("likes");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
     alice.add(likes);
 
-    const bob = ecs.createNamedEntity("Bob");
+    const bob = ecs.entity("Bob");
     bob.add(likes);
     bob.add(cheese);
 
-    const clint = ecs.createNamedEntity("Clint");
+    const clint = ecs.entity("Clint");
     clint.add(cheese);
     clint.add(likes);
 
@@ -1227,16 +1237,16 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag removes all relationships that use the tag", () => {
     const ecs = new ECS();
 
-    const cheese = ecs.createTag("cheese");
-    const likes = ecs.createTag("likes");
+    const cheese = ecs.tag("cheese");
+    const likes = ecs.tag("likes");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
-    const bob = ecs.createNamedEntity("Bob");
+    const bob = ecs.entity("Bob");
     bob.add(cheese);
     bob.add(likes, alice);
 
-    const clint = ecs.createNamedEntity("Clint");
+    const clint = ecs.entity("Clint");
     clint.add(likes, alice);
     clint.add(cheese);
 
@@ -1253,12 +1263,12 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag that is used as both tag and relationship clears up both", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag("likes");
+    const likes = ecs.tag("likes");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
     alice.add(likes);
 
-    const bob = ecs.createNamedEntity("Bob");
+    const bob = ecs.entity("Bob");
     bob.add(likes, alice);
 
     likes.destruct();
@@ -1273,11 +1283,11 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag that is used as both tag and relationship on the same archetype clears up both", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag("likes");
+    const likes = ecs.tag("likes");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
-    const bob = ecs.createNamedEntity("Bob");
+    const bob = ecs.entity("Bob");
     alice.add(likes);
     bob.add(likes, alice);
 
@@ -1293,11 +1303,11 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag removes all relationships that use the tag, even if there would be intermediate archetypes created", () => {
     const ecs = new ECS();
 
-    const likes = ecs.createTag("likes");
+    const likes = ecs.tag("likes");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
-    const bob = ecs.createNamedEntity("Bob");
+    const bob = ecs.entity("Bob");
     bob.add(likes);
     bob.add(likes, alice);
 
@@ -1312,15 +1322,15 @@ describe("Cleanup on destruct", () => {
   test("Destructing a tag removes all archetypes and links using the tag", () => {
     const ecs = new ECS();
 
-    const cheese = ecs.createTag("cheese");
-    const likes = ecs.createTag("likes");
+    const cheese = ecs.tag("cheese");
+    const likes = ecs.tag("likes");
 
     const archetypes = ecs.getArchetypeCount();
     const edges = ecs.getArchetypeGraphEdgeCount();
 
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
-    const clint = ecs.createNamedEntity("Clint");
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
+    const clint = ecs.entity("Clint");
 
     expect(ecs.getArchetypeCount()).toBe(archetypes);
     expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges);
@@ -1366,10 +1376,10 @@ describe("Cleanup on destruct", () => {
 
     beforeEach(() => {
       const ecs = new ECS();
-      likes = ecs.createComponent(z.number().default(0));
+      likes = ecs.component(z.number().default(0));
 
-      bob = ecs.createNamedEntity("Bob");
-      alice = ecs.createNamedEntity("Alice");
+      bob = ecs.entity("Bob");
+      alice = ecs.entity("Alice");
 
       bob.add(likes, alice);
 
@@ -1397,13 +1407,13 @@ describe("Cleanup on destruct", () => {
 
   test("Destructing an entity removes all archetypes and edges that previously had the entity as a target", () => {
     const ecs = new ECS();
-    const likes = ecs.createTag();
+    const likes = ecs.tag();
 
-    const doofus = ecs.createTag();
+    const doofus = ecs.tag();
 
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
-    const clint = ecs.createNamedEntity("Clint");
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
+    const clint = ecs.entity("Clint");
 
     bob.add(likes, alice);
     clint.add(doofus);
@@ -1425,7 +1435,7 @@ describe("Cleanup on destruct", () => {
 
   test("Trying to delete a component throws an error", () => {
     const ecs = new ECS();
-    const health = ecs.createComponent(z.number());
+    const health = ecs.component(z.number());
     expect(() => health.destruct()).toThrow(
       "Components cannot be destructed (by default)",
     );
@@ -1458,10 +1468,10 @@ describe("With trait", () => {
 
   test("Adding the with-trait to a component means that the withed-component will always be added automatically", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1473,10 +1483,10 @@ describe("With trait", () => {
 
   test("With-trait works when adding implicitly", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createTag();
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1488,11 +1498,11 @@ describe("With trait", () => {
 
   test("A component can have multiple With's", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const rogues = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const rogues = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     power.add(ecs.builtin.With, rogues);
@@ -1506,11 +1516,11 @@ describe("With trait", () => {
 
   test("Withs can be chained", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
@@ -1524,12 +1534,12 @@ describe("With trait", () => {
 
   test("Withs can be chained multiple times", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
-    const sadness = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
+    const sadness = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
@@ -1545,11 +1555,11 @@ describe("With trait", () => {
 
   test("chained Withs add no extra archetypes", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
@@ -1562,11 +1572,11 @@ describe("With trait", () => {
 
   test("When with adds components with data, these are default initialized ", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createComponent(z.string().default("great"));
-    const rogues = ecs.createComponent(z.string().default("lots"));
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.component(z.string().default("great"));
+    const rogues = ecs.component(z.string().default("lots"));
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     power.add(ecs.builtin.With, rogues);
@@ -1579,11 +1589,11 @@ describe("With trait", () => {
 
   test("When with adds components with data, these are default initialized when implicitly added", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createComponent(z.string().default("great"));
-    const rogues = ecs.createComponent(z.string().default("lots"));
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.component(z.string().default("great"));
+    const rogues = ecs.component(z.string().default("lots"));
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     power.add(ecs.builtin.With, rogues);
@@ -1596,11 +1606,11 @@ describe("With trait", () => {
 
   test("When with adds components with data, which are already on the entity, these are not modified ", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createComponent(z.string().default("great"));
-    const rogues = ecs.createComponent(z.string().default("lots"));
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.component(z.string().default("great"));
+    const rogues = ecs.component(z.string().default("lots"));
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     power.add(ecs.builtin.With, rogues);
@@ -1614,10 +1624,10 @@ describe("With trait", () => {
 
   test("Removing a trait with a with does not remove the withed trait", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1630,10 +1640,10 @@ describe("With trait", () => {
 
   test("Removing a trait added due to With also removes the trait that has the With", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1646,11 +1656,11 @@ describe("With trait", () => {
 
   test("Removing a withed trait works recursively", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
@@ -1665,11 +1675,11 @@ describe("With trait", () => {
 
   test("Removing the middle of a with chain clears only the upstream", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
@@ -1684,10 +1694,10 @@ describe("With trait", () => {
 
   test("Removing a component due to its With being removed also clears out the data", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createTag();
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1701,11 +1711,11 @@ describe("With trait", () => {
 
   test("A component that is target of With can be added and removed normally, if the With-relationship is not used", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createTag();
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.tag();
     power.add(ecs.builtin.With, responsibility);
 
-    const peterPorker = ecs.createNamedEntity("Peter Porker");
+    const peterPorker = ecs.entity("Peter Porker");
 
     peterPorker.add(responsibility);
     expect(peterPorker.has(responsibility)).toBe(true);
@@ -1720,11 +1730,11 @@ describe("With trait", () => {
 
   test("Adding the with-trait to a relationship means that the withed-component will be added automatically with the same target", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const great = ecs.createNamedEntity("great");
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const great = ecs.entity("great");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1736,11 +1746,11 @@ describe("With trait", () => {
 
   test("Adding the with-trait to a relationship means that the withed-component will be added automatically with the same target on implicit add", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createTag();
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.tag();
 
-    const great = ecs.createNamedEntity("great");
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const great = ecs.entity("great");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1752,11 +1762,11 @@ describe("With trait", () => {
 
   test("Removing a relationship added through with automatically removes the source-relationship", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const great = ecs.createNamedEntity("great");
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const great = ecs.entity("great");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1769,10 +1779,10 @@ describe("With trait", () => {
 
   test("Removing a component that has a With does not remove the withed component", () => {
     const ecs = new ECS();
-    const power = ecs.createComponent(z.string().default("great"));
-    const responsibility = ecs.createComponent(z.string().default("great"));
+    const power = ecs.component(z.string().default("great"));
+    const responsibility = ecs.component(z.string().default("great"));
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
 
@@ -1785,11 +1795,11 @@ describe("With trait", () => {
 
   test("Removing a component that is added due to with by multiple origins also removes all the components withing it", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const money = ecs.createTag();
-    const responsibility = ecs.createTag();
+    const power = ecs.tag();
+    const money = ecs.tag();
+    const responsibility = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     money.add(ecs.builtin.With, responsibility);
@@ -1805,11 +1815,11 @@ describe("With trait", () => {
 
   test("Removing a component that is added due to with removes the one withing it, but not any other components withed by that original component", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const rogues = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const rogues = ecs.tag();
 
-    const peterParker = ecs.createNamedEntity("Peter Parker");
+    const peterParker = ecs.entity("Peter Parker");
 
     power.add(ecs.builtin.With, responsibility);
     power.add(ecs.builtin.With, rogues);
@@ -1835,10 +1845,10 @@ describe("Relationship trait", () => {
 
   test("A component marked as a Relationship cannot be added as a component", () => {
     const ecs = new ECS();
-    const relationshipComponent = ecs.createTag("relationship component");
+    const relationshipComponent = ecs.tag("relationship component");
     relationshipComponent.add(ecs.builtin.Relationship);
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     expect(() => e.add(relationshipComponent)).toThrow(
       'Component "relationship component" is purely a relationship and cannot be used as a component',
     );
@@ -1846,12 +1856,12 @@ describe("Relationship trait", () => {
 
   test("A component marked as a Relationship cannot be added as a target in a relationship", () => {
     const ecs = new ECS();
-    const markedRelationship = ecs.createTag("relationship component");
+    const markedRelationship = ecs.tag("relationship component");
     markedRelationship.add(ecs.builtin.Relationship);
 
-    const tag = ecs.createTag("some other relationship");
+    const tag = ecs.tag("some other relationship");
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     expect(() => e.add(tag, markedRelationship)).toThrow(
       'Component "relationship component" is purely a relationship and cannot be used as a target of a relationship',
     );
@@ -1859,13 +1869,13 @@ describe("Relationship trait", () => {
 
   test("A component marked as a Relationship CAN be added as a target in a relationship if the relationship is a Trait", () => {
     const ecs = new ECS();
-    const markedRelationship = ecs.createTag("relationship component");
+    const markedRelationship = ecs.tag("relationship component");
     markedRelationship.add(ecs.builtin.Relationship);
 
-    const trait = ecs.createTag("some other relationship");
+    const trait = ecs.tag("some other relationship");
     trait.add(ecs.builtin.Trait);
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
     expect(() => e.add(trait, markedRelationship)).not.toThrow();
   });
 });
@@ -1879,11 +1889,11 @@ describe("RelationshipHasNoData trait", () => {
   test("A relationship marked as RelationshipHasNoData cannot have data set on it", () => {
     const ecs = new ECS();
 
-    const relationship = ecs.createTag("some relationship");
+    const relationship = ecs.tag("some relationship");
     relationship.add(ecs.builtin.RelationshipHasNoData);
 
-    const e = ecs.createEntity();
-    const target = ecs.createComponent(z.string());
+    const e = ecs.entity();
+    const target = ecs.component(z.string());
     target.setName("some target");
 
     expect(() => e.set(relationship, target, "some data")).toThrow(
@@ -1894,11 +1904,11 @@ describe("RelationshipHasNoData trait", () => {
   test("A relationship marked as RelationshipHasNoData cannot have data, so is not default initialized", () => {
     const ecs = new ECS();
 
-    const relationship = ecs.createTag("some relationship");
+    const relationship = ecs.tag("some relationship");
     relationship.add(ecs.builtin.RelationshipHasNoData);
 
-    const e = ecs.createEntity();
-    const target = ecs.createComponent(z.string().default("default"));
+    const e = ecs.entity();
+    const target = ecs.component(z.string().default("default"));
 
     e.add(relationship, target);
 
@@ -1908,11 +1918,11 @@ describe("RelationshipHasNoData trait", () => {
   test("A relationship marked as RelationshipHasNoData cannot have data & can thus target non-default initializable components", () => {
     const ecs = new ECS();
 
-    const relationship = ecs.createTag("some relationship");
+    const relationship = ecs.tag("some relationship");
     relationship.add(ecs.builtin.RelationshipHasNoData);
 
-    const e = ecs.createEntity();
-    const target = ecs.createComponent(z.string());
+    const e = ecs.entity();
+    const target = ecs.component(z.string());
 
     expect(() => e.add(relationship, target)).not.toThrow();
   });
@@ -1926,13 +1936,13 @@ describe("Trait trait", () => {
 
   test("A trait-relationship can not be added to a component that is already used (throws)", () => {
     const ecs = new ECS();
-    const someComponent = ecs.createTag();
-    const someTarget = ecs.createTag();
+    const someComponent = ecs.tag();
+    const someTarget = ecs.tag();
 
-    const someTrait = ecs.createTag("some trait");
+    const someTrait = ecs.tag("some trait");
     someTrait.add(ecs.builtin.Trait);
 
-    const e = ecs.createNamedEntity("Peter Parker");
+    const e = ecs.entity("Peter Parker");
     e.add(someComponent);
 
     expect(() => {
@@ -1952,9 +1962,9 @@ describe("Acyclic trait", () => {
 
   test("An acyclic relationship cannot target the entity it is added to", () => {
     const ecs = new ECS();
-    const e = ecs.createTag();
+    const e = ecs.tag();
 
-    const acyclicRelationship = ecs.createTag("acyclicRelationship");
+    const acyclicRelationship = ecs.tag("acyclicRelationship");
     acyclicRelationship.add(ecs.builtin.Acyclic);
 
     expect(() => {
@@ -1966,10 +1976,10 @@ describe("Acyclic trait", () => {
 
   test("An acyclic relationships cannot be added to a component that would create a direct cycle", () => {
     const ecs = new ECS();
-    const e = ecs.createTag();
-    const target = ecs.createTag();
+    const e = ecs.tag();
+    const target = ecs.tag();
 
-    const acyclicRelationship = ecs.createTag("acyclicRelationship");
+    const acyclicRelationship = ecs.tag("acyclicRelationship");
     acyclicRelationship.add(ecs.builtin.Acyclic);
 
     e.add(acyclicRelationship, target);
@@ -1983,11 +1993,11 @@ describe("Acyclic trait", () => {
 
   test("An acyclic relationship cannot be added to a component that would create an indirect cycle", () => {
     const ecs = new ECS();
-    const power = ecs.createTag();
-    const responsibility = ecs.createTag();
-    const stress = ecs.createTag();
+    const power = ecs.tag();
+    const responsibility = ecs.tag();
+    const stress = ecs.tag();
 
-    const acyclicRelationship = ecs.createTag("acyclicRelationship");
+    const acyclicRelationship = ecs.tag("acyclicRelationship");
     acyclicRelationship.add(ecs.builtin.Acyclic);
 
     power.add(acyclicRelationship, responsibility);
@@ -2010,11 +2020,11 @@ describe("Singleton trait", () => {
   test("Singletons throw if trying to set on an entity", () => {
     const ecs = new ECS();
 
-    const singletonComponent = ecs.createComponent(z.string());
+    const singletonComponent = ecs.component(z.string());
     singletonComponent.setName("singleton component");
     singletonComponent.add(ecs.builtin.Singleton);
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
     expect(() => {
       e.set(singletonComponent, "some value");
@@ -2026,11 +2036,11 @@ describe("Singleton trait", () => {
   test("Singletons throw if trying to add to an entity", () => {
     const ecs = new ECS();
 
-    const singletonComponent = ecs.createComponent(z.string().default(""));
+    const singletonComponent = ecs.component(z.string().default(""));
     singletonComponent.setName("singleton component");
     singletonComponent.add(ecs.builtin.Singleton);
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
     expect(() => {
       e.add(singletonComponent);
@@ -2042,7 +2052,7 @@ describe("Singleton trait", () => {
   test("Singletons don't throw if trying to set on the component itself", () => {
     const ecs = new ECS();
 
-    const singletonComponent = ecs.createComponent(z.string());
+    const singletonComponent = ecs.component(z.string());
     singletonComponent.setName("singleton component");
     singletonComponent.add(ecs.builtin.Singleton);
 
@@ -2054,7 +2064,7 @@ describe("Singleton trait", () => {
   test("When setting a component on the ecs world itself, it automatically becomes a singleton", () => {
     const ecs = new ECS();
 
-    const singletonComponent = ecs.createComponent(z.string());
+    const singletonComponent = ecs.component(z.string());
 
     ecs.set(singletonComponent, "some value");
 
@@ -2070,11 +2080,11 @@ describe("Symmetric trait", () => {
 
   test("A relationship marked as Symmetric automatically creates the inverse relationship", () => {
     const ecs = new ECS();
-    const friendOf = ecs.createTag("friend of");
+    const friendOf = ecs.tag("friend of");
     friendOf.add(ecs.builtin.Symmetric);
 
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
 
     alice.add(friendOf, bob);
 
@@ -2084,10 +2094,10 @@ describe("Symmetric trait", () => {
 
   test("A relationship marked as Symmetric automatically removes the inverse relationship when removed", () => {
     const ecs = new ECS();
-    const friendOf = ecs.createTag("friend of");
+    const friendOf = ecs.tag("friend of");
     friendOf.add(ecs.builtin.Symmetric);
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
     alice.add(friendOf, bob);
 
     alice.remove(friendOf, bob);
@@ -2098,12 +2108,12 @@ describe("Symmetric trait", () => {
 
   test("When Symmetric is removed from a relationship, it no longer adds the inverse when added", () => {
     const ecs = new ECS();
-    const friendOf = ecs.createTag("friend of");
+    const friendOf = ecs.tag("friend of");
     friendOf.add(ecs.builtin.Symmetric);
 
-    const alice = ecs.createNamedEntity("Alice");
-    const bob = ecs.createNamedEntity("Bob");
-    const clint = ecs.createNamedEntity("Clint");
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
+    const clint = ecs.entity("Clint");
 
     alice.add(friendOf, bob);
     friendOf.remove(ecs.builtin.Symmetric);
@@ -2127,10 +2137,10 @@ describe("Target trait", () => {
   test("An entity marked as Target can be used as target of a relationship", () => {
     const ecs = new ECS();
 
-    const e = ecs.createEntity();
-    const target = ecs.createEntity();
+    const e = ecs.entity();
+    const target = ecs.entity();
     target.add(ecs.builtin.Target);
-    const r = ecs.createTag();
+    const r = ecs.tag();
 
     expect(() => {
       e.add(r, target);
@@ -2140,10 +2150,10 @@ describe("Target trait", () => {
   test("An entity marked as Target can NOT be used as a relationship", () => {
     const ecs = new ECS();
 
-    const e = ecs.createEntity();
-    const target = ecs.createNamedEntity("marked target");
+    const e = ecs.entity();
+    const target = ecs.entity("marked target");
     target.add(ecs.builtin.Target);
-    const r = ecs.createTag();
+    const r = ecs.tag();
 
     expect(() => {
       e.add(target, r);
@@ -2155,8 +2165,8 @@ describe("Target trait", () => {
   test("An entity marked as Target can NOT be used as component", () => {
     const ecs = new ECS();
 
-    const e = ecs.createEntity();
-    const target = ecs.createNamedEntity("marked target");
+    const e = ecs.entity();
+    const target = ecs.entity("marked target");
     target.add(ecs.builtin.Target);
 
     expect(() => {
@@ -2177,11 +2187,11 @@ describe("TargetMustBeDefaultInitializable trait", () => {
 
   test("A relationship marked as TargetMustBeDefaultInitializable cannot be used with a component that cannot be default initialized", () => {
     const ecs = new ECS();
-    const entity = ecs.createEntity();
-    const nonDefaultInitializable = ecs.createComponent(z.string());
+    const entity = ecs.entity();
+    const nonDefaultInitializable = ecs.component(z.string());
     nonDefaultInitializable.setName("non default initializable");
 
-    const r = ecs.createTag("some relationship");
+    const r = ecs.tag("some relationship");
     r.add(ecs.builtin.RelationshipHasNoData);
     r.add(ecs.builtin.TargetMustBeDefaultInitializable);
 
@@ -2199,13 +2209,13 @@ describe("Exclusive Trait", () => {
 
   test("If an exclusive relationship is added to an entity with a different target, the target is replaced, not added", () => {
     const ecs = new ECS();
-    const isOnPlanet = ecs.createTag("is on planet");
+    const isOnPlanet = ecs.tag("is on planet");
     isOnPlanet.add(ecs.builtin.Exclusive);
 
-    const earth = ecs.createNamedEntity("Earth");
-    const mars = ecs.createNamedEntity("Mars");
+    const earth = ecs.entity("Earth");
+    const mars = ecs.entity("Mars");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
     alice.add(isOnPlanet, earth);
     alice.add(isOnPlanet, mars);
@@ -2216,13 +2226,13 @@ describe("Exclusive Trait", () => {
 
   test("on Exclusive replacement, data of former is also replaced", () => {
     const ecs = new ECS();
-    const isOnPlanet = ecs.createComponent(z.number().default(0));
+    const isOnPlanet = ecs.component(z.number().default(0));
     isOnPlanet.add(ecs.builtin.Exclusive);
 
-    const earth = ecs.createNamedEntity("Earth");
-    const mars = ecs.createNamedEntity("Mars");
+    const earth = ecs.entity("Earth");
+    const mars = ecs.entity("Mars");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
     alice.set(isOnPlanet, earth, 100);
     alice.set(isOnPlanet, mars, 200);
@@ -2234,19 +2244,19 @@ describe("Exclusive Trait", () => {
   test("If an exclusive relationship which also has With's is replaced, the Withs are also replaced", () => {
     const ecs = new ECS();
 
-    const isOnPlanet = ecs.createTag("is on planet");
+    const isOnPlanet = ecs.tag("is on planet");
     isOnPlanet.add(ecs.builtin.Exclusive);
 
-    const hasAtmosphere = ecs.createTag("has atmosphere");
+    const hasAtmosphere = ecs.tag("has atmosphere");
     isOnPlanet.add(ecs.builtin.With, hasAtmosphere);
 
-    const likesCurrentPlanet = ecs.createTag("likes current planet");
+    const likesCurrentPlanet = ecs.tag("likes current planet");
     isOnPlanet.add(ecs.builtin.With, likesCurrentPlanet);
 
-    const earth = ecs.createNamedEntity("Earth");
-    const mars = ecs.createNamedEntity("Mars");
+    const earth = ecs.entity("Earth");
+    const mars = ecs.entity("Mars");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
     alice.add(isOnPlanet, earth);
     alice.add(isOnPlanet, mars);
@@ -2259,14 +2269,14 @@ describe("Exclusive Trait", () => {
 
   test("When an exclusive relationship is added, but the replacement cannot be added, there should not be a remove", () => {
     const ecs = new ECS();
-    const isOnPlanet = ecs.createTag("is on planet");
+    const isOnPlanet = ecs.tag("is on planet");
     isOnPlanet.add(ecs.builtin.Exclusive);
     isOnPlanet.add(ecs.builtin.TargetMustBeDefaultInitializable);
 
-    const earth = ecs.createNamedEntity("Earth");
-    const mars = ecs.createComponent(z.string());
+    const earth = ecs.entity("Earth");
+    const mars = ecs.component(z.string());
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
     alice.add(isOnPlanet, earth);
 
@@ -2281,21 +2291,21 @@ describe("Exclusive Trait", () => {
   test("Replacing an exclusive relationship happens with a single archetype move, and one archetype link being created, even under complex circumstances", () => {
     const ecs = new ECS();
     ecs.startStatistics();
-    const isOnPlanet = ecs.createTag("is on planet");
+    const isOnPlanet = ecs.tag("is on planet");
     isOnPlanet.add(ecs.builtin.Exclusive);
 
-    const hasAtmosphere = ecs.createTag("has atmosphere");
+    const hasAtmosphere = ecs.tag("has atmosphere");
     isOnPlanet.add(ecs.builtin.With, hasAtmosphere);
 
-    const likesCurrentPlanet = ecs.createTag("likes current planet");
+    const likesCurrentPlanet = ecs.tag("likes current planet");
     isOnPlanet.add(ecs.builtin.With, likesCurrentPlanet);
 
-    const someOtherTag = ecs.createTag("some other tag");
+    const someOtherTag = ecs.tag("some other tag");
 
-    const earth = ecs.createNamedEntity("Earth");
-    const mars = ecs.createNamedEntity("Mars");
+    const earth = ecs.entity("Earth");
+    const mars = ecs.entity("Mars");
 
-    const alice = ecs.createNamedEntity("Alice");
+    const alice = ecs.entity("Alice");
 
     alice.add(isOnPlanet, earth);
     alice.add(someOtherTag); // this matters, because this way the archetype for just removing (isOnPlanet, earth) doesn't exist
@@ -2329,10 +2339,10 @@ describe("Atomic operations", () => {
   test("When an add operation throws, it does not leave the ECS in a dirty state", () => {
     const ecs = new ECS();
 
-    const e = ecs.createEntity();
-    const target = ecs.createNamedEntity("marked target");
+    const e = ecs.entity();
+    const target = ecs.entity("marked target");
     target.add(ecs.builtin.Target);
-    const r = ecs.createTag();
+    const r = ecs.tag();
 
     expect(() => {
       e.add(target, r);
@@ -2345,13 +2355,13 @@ describe("Atomic operations", () => {
 
   test("When a nested operation fails inside an operation, no changes are made", () => {
     const ecs = new ECS();
-    const relationshipComponent = ecs.createTag("relationship component");
+    const relationshipComponent = ecs.tag("relationship component");
     relationshipComponent.add(ecs.builtin.Relationship);
 
-    const tag = ecs.createTag("tag");
+    const tag = ecs.tag("tag");
     tag.add(ecs.builtin.With, relationshipComponent); // this will try to add relationshipComponent as a component, which should throw, but it should not add the With relationship
 
-    const e = ecs.createEntity();
+    const e = ecs.entity();
 
     expect(() => e.add(tag)).toThrow(
       'Component "relationship component" is purely a relationship and cannot be used as a component',

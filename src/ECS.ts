@@ -2,90 +2,91 @@ import { Backend, Entity, Pair } from "./Backend";
 import { builtinTraits } from "./builtinTraits";
 
 export class ECS {
-  #backend: Backend = new Backend();
+  private backend: Backend = new Backend();
 
   builtin = (() => {
-    const traits = builtinTraits(this.#backend);
+    const traits = builtinTraits(this.backend);
 
     return {
-      Trait: new EntityHandle(traits.Trait, this.#backend),
-      Relationship: new EntityHandle(traits.Relationship, this.#backend),
+      Trait: new EntityHandle(traits.Trait, this.backend),
+      Relationship: new EntityHandle(traits.Relationship, this.backend),
       RelationshipHasNoData: new EntityHandle(
         traits.RelationshipHasNoData,
-        this.#backend,
+        this.backend,
       ),
-      With: new EntityHandle(traits.With, this.#backend),
-      Acyclic: new EntityHandle(traits.Acyclic, this.#backend),
-      Singleton: new EntityHandle(traits.Singleton, this.#backend),
-      Symmetric: new EntityHandle(traits.Symmetric, this.#backend),
-      Target: new EntityHandle(traits.Target, this.#backend),
+      With: new EntityHandle(traits.With, this.backend),
+      Acyclic: new EntityHandle(traits.Acyclic, this.backend),
+      Singleton: new EntityHandle(traits.Singleton, this.backend),
+      Symmetric: new EntityHandle(traits.Symmetric, this.backend),
+      Target: new EntityHandle(traits.Target, this.backend),
       TargetMustBeDefaultInitializable: new EntityHandle(
         traits.TargetMustBeDefaultInitializable,
-        this.#backend,
+        this.backend,
       ),
-      Exclusive: new EntityHandle(traits.Exclusive, this.#backend),
+      Exclusive: new EntityHandle(traits.Exclusive, this.backend),
     };
   })();
 
   startStatistics() {
-    this.#backend.storage.startStatistics();
+    this.backend.storage.startStatistics();
   }
 
   stopStatistics() {
-    this.#backend.storage.stopStatistics();
+    this.backend.storage.stopStatistics();
   }
 
   getStatistics() {
-    return this.#backend.storage.getStatistics();
+    return this.backend.storage.getStatistics();
   }
 
   getArchetypeCount() {
-    return this.#backend.storage.getArchetypeCount();
+    return this.backend.storage.getArchetypeCount();
   }
 
   getArchetypeGraphEdgeCount() {
-    return this.#backend.storage.getLinkCount();
+    return this.backend.storage.getLinkCount();
   }
 
-  createEntity() {
-    return new EntityHandle(this.#backend.createEntity(), this.#backend);
+  entity(name?: string) {
+    return new EntityHandle(this.backend.entity(name), this.backend);
   }
 
-  createNamedEntity(name: string) {
-    return new EntityHandle(this.#backend.createEntity(name), this.#backend);
+  tag(name?: string) {
+    return new EntityHandle(this.backend.tag(name), this.backend);
   }
 
-  createTag(name?: string) {
-    return new EntityHandle(this.#backend.createTag(name), this.#backend);
+  component<T extends ComponentDataSchema>(schema: T) {
+    return new ComponentHandle<T>(this.backend.component(schema), this.backend);
   }
 
-  createComponent<T extends ComponentDataSchema>(schema: T) {
-    return new ComponentHandle<T>(
-      this.#backend.createComponent((val: unknown) => schema.parse(val)),
-      this.#backend,
-    );
-  }
-
-  createRelationshipTag(relationship: EntityHandle, target: EntityHandle) {
-    return new RelationshipTagHandle(
-      this.#backend.makeExplicitRelationship(relationship.data, target.data),
-      this.#backend,
-    );
-  }
-
-  createRelationshipComponent<T extends ComponentDataSchema>(
+  pair<T extends ComponentDataSchema>(
     relationship: ComponentHandle<T>,
     target: EntityHandle,
+  ): RelationshipComponentHandle<T>;
+  pair(relationship: EntityHandle, target: EntityHandle): RelationshipTagHandle;
+  pair(
+    relationship: EntityHandle | ComponentHandle<ComponentDataSchema>,
+    target: EntityHandle,
   ) {
-    return new RelationshipComponentHandle<T>(
-      this.#backend.makeExplicitRelationship(relationship.data, target.data),
-      this.#backend,
-    );
+    this.backend.checkValid(relationship.data);
+
+    if (relationship instanceof ComponentHandle) {
+      return new RelationshipComponentHandle(
+        this.backend.pair(relationship.data, target.data),
+        this.backend,
+      );
+    }
+    if (relationship instanceof EntityHandle) {
+      return new RelationshipTagHandle(
+        this.backend.pair(relationship.data, target.data),
+        this.backend,
+      );
+    }
   }
 
   lookupEntity(name: string) {
-    const entityData = this.#backend.lookupEntity(name);
-    return entityData ? new EntityHandle(entityData, this.#backend) : undefined;
+    const entityData = this.backend.lookupEntity(name);
+    return entityData ? new EntityHandle(entityData, this.backend) : undefined;
   }
 
   removeFromAll(component: AnyComponentHandle): void;
@@ -96,13 +97,11 @@ export class ECS {
   removeFromAll(component: AnyRelationshipHandle): void;
   removeFromAll(first: AnyIdHandle, second?: AnyComponentHandle) {
     if (second === undefined) {
-      this.#backend.removeFromAll(first.data);
+      this.backend.removeFromAll(first.data);
       return;
     }
     if (first instanceof ComponentHandle || first instanceof EntityHandle) {
-      this.#backend.removeFromAll(
-        this.#backend.relationship(first.data, second.data),
-      );
+      this.backend.removeFromAll(this.backend.pair(first.data, second.data));
       return;
     }
 
@@ -117,13 +116,11 @@ export class ECS {
   destructAllWith(component: AnyRelationshipHandle): void;
   destructAllWith(first: AnyIdHandle, second?: AnyComponentHandle) {
     if (second === undefined) {
-      this.#backend.destructAllWith(first.data);
+      this.backend.destructAllWith(first.data);
       return;
     }
     if (first instanceof ComponentHandle || first instanceof EntityHandle) {
-      this.#backend.destructAllWith(
-        this.#backend.relationship(first.data, second.data),
-      );
+      this.backend.destructAllWith(this.backend.pair(first.data, second.data));
       return;
     }
 
@@ -134,31 +131,31 @@ export class ECS {
     component: ComponentHandle<T>,
     newVal: InferType<T>,
   ): void {
-    this.#backend.add(component.data, this.builtin.Singleton.data);
-    this.#backend.set(component.data, component.data, newVal);
+    this.backend.add(component.data, this.builtin.Singleton.data);
+    this.backend.set(component.data, component.data, newVal);
   }
 
   _debugBackendOperationIsDirty() {
     // @ts-expect-error // exposing for testing purposes, not part of public API
-    return this.#backend.operation.isDirty();
+    return this.backend.operation.isDirty();
   }
 }
 
 export class EntityHandle {
   data: Entity;
-  #backend: Backend;
+  private backend: Backend;
 
   constructor(data: Entity, backend: Backend) {
     this.data = data;
-    this.#backend = backend;
+    this.backend = backend;
   }
 
   getName() {
-    return this.#backend.getName(this.data);
+    return this.backend.getName(this.data);
   }
 
   setName(name: string) {
-    this.#backend.setName(this.data, name);
+    this.backend.setName(this.data, name);
   }
 
   isSameEntityAs(other: EntityHandle) {
@@ -166,30 +163,30 @@ export class EntityHandle {
   }
 
   isAlive() {
-    return this.#backend.isAlive(this.data);
+    return this.backend.isAlive(this.data);
   }
 
   destruct() {
-    this.#backend.destruct(this.data);
+    this.backend.destruct(this.data);
   }
 
   clear() {
-    this.#backend.clear(this.data);
+    this.backend.clear(this.data);
   }
 
   has(component: AnyIdHandle): boolean;
   has(relationship: AnyComponentHandle, target: EntityHandle): boolean;
   has(componentOrRelationship: AnyIdHandle, target?: EntityHandle): boolean {
     if (target === undefined) {
-      return this.#backend.has(this.data, componentOrRelationship.data);
+      return this.backend.has(this.data, componentOrRelationship.data);
     }
     if (
       componentOrRelationship instanceof ComponentHandle ||
       componentOrRelationship instanceof EntityHandle
     ) {
-      return this.#backend.has(
+      return this.backend.has(
         this.data,
-        this.#backend.relationship(componentOrRelationship.data, target.data),
+        this.backend.pair(componentOrRelationship.data, target.data),
       );
     }
 
@@ -200,16 +197,16 @@ export class EntityHandle {
   remove(relationship: AnyComponentHandle, target: EntityHandle): void;
   remove(component: AnyIdHandle, target?: EntityHandle) {
     if (target === undefined) {
-      this.#backend.remove(this.data, component.data);
+      this.backend.remove(this.data, component.data);
       return;
     }
     if (
       component instanceof ComponentHandle ||
       component instanceof EntityHandle
     ) {
-      this.#backend.remove(
+      this.backend.remove(
         this.data,
-        this.#backend.relationship(component.data, target.data),
+        this.backend.pair(component.data, target.data),
       );
       return;
     }
@@ -222,14 +219,11 @@ export class EntityHandle {
   add(relationship: AnyComponentHandle, target: EntityHandle): void;
   add(first: AnyIdHandle, second?: EntityHandle) {
     if (first instanceof EntityHandle && second === undefined) {
-      this.#backend.add(this.data, first.data);
+      this.backend.add(this.data, first.data);
       return;
     }
     if (first instanceof EntityHandle && second !== undefined) {
-      this.#backend.add(
-        this.data,
-        this.#backend.relationship(first.data, second.data),
-      );
+      this.backend.add(this.data, this.backend.pair(first.data, second.data));
       return;
     }
     if (
@@ -237,7 +231,7 @@ export class EntityHandle {
         first instanceof RelationshipComponentHandle) &&
       second === undefined
     ) {
-      this.#backend.add(this.data, first.data);
+      this.backend.add(this.data, first.data);
       return;
     }
     throw new Error("Bad arguments for add");
@@ -276,20 +270,20 @@ export class EntityHandle {
       !(second instanceof EntityHandle) &&
       third === undefined
     ) {
-      this.#backend.set(this.data, first.data, second);
+      this.backend.set(this.data, first.data, second);
       return;
     }
     if (first instanceof RelationshipComponentHandle && third === undefined) {
-      this.#backend.set(this.data, first.data, second);
+      this.backend.set(this.data, first.data, second);
       return;
     }
     if (
       (first instanceof EntityHandle || first instanceof ComponentHandle) &&
       (second instanceof EntityHandle || second instanceof ComponentHandle)
     ) {
-      this.#backend.set(
+      this.backend.set(
         this.data,
-        this.#backend.relationship(first.data, second.data),
+        this.backend.pair(first.data, second.data),
         third,
       );
       return;
@@ -323,27 +317,27 @@ export class EntityHandle {
     second?: AnyComponentHandle,
   ) {
     if (first instanceof ComponentHandle && second === undefined) {
-      return this.#backend.get(this.data, first.data);
+      return this.backend.get(this.data, first.data);
     }
     if (first instanceof RelationshipComponentHandle && second === undefined) {
-      return this.#backend.get(this.data, first.data);
+      return this.backend.get(this.data, first.data);
     }
     if (first instanceof ComponentHandle && second instanceof EntityHandle) {
-      return this.#backend.get(
+      return this.backend.get(
         this.data,
-        this.#backend.relationship(first.data, second.data),
+        this.backend.pair(first.data, second.data),
       );
     }
     if (first instanceof EntityHandle && second instanceof ComponentHandle) {
-      return this.#backend.get(
+      return this.backend.get(
         this.data,
-        this.#backend.relationship(first.data, second.data),
+        this.backend.pair(first.data, second.data),
       );
     }
     if (first instanceof ComponentHandle && second instanceof ComponentHandle) {
-      return this.#backend.get(
+      return this.backend.get(
         this.data,
-        this.#backend.relationship(first.data, second.data),
+        this.backend.pair(first.data, second.data),
       );
     }
 
@@ -351,27 +345,27 @@ export class EntityHandle {
   }
 
   hasAnyRelationship(relationship: AnyComponentHandle) {
-    return this.#backend.hasAnyRelationship(this.data, relationship.data);
+    return this.backend.hasAnyRelationship(this.data, relationship.data);
   }
 
   getRelationshipTargets(relationship: AnyComponentHandle): Set<EntityHandle> {
     return new Set(
-      this.#backend
+      this.backend
         .getRelationshipTargets(this.data, relationship.data)
         .entries()
-        .map(([target]) => new EntityHandle(target, this.#backend)),
+        .map(([target]) => new EntityHandle(target, this.backend)),
     );
   }
 
   getARelationshipTarget(
     relationship: AnyComponentHandle,
   ): EntityHandle | undefined {
-    const target = this.#backend.getARelationshipTarget(
+    const target = this.backend.getARelationshipTarget(
       this.data,
       relationship.data,
     );
 
-    return target ? new EntityHandle(target, this.#backend) : undefined;
+    return target ? new EntityHandle(target, this.backend) : undefined;
   }
 }
 
