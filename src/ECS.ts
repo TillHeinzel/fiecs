@@ -141,9 +141,9 @@ export class ECS {
   }
 }
 
-export class EntityHandle {
+class EntityHandleBase {
   data: Entity;
-  private backend: Backend;
+  backend: Backend;
 
   constructor(data: Entity, backend: Backend) {
     this.data = data;
@@ -158,7 +158,7 @@ export class EntityHandle {
     this.backend.setName(this.data, name);
   }
 
-  isSameEntityAs(other: EntityHandle) {
+  isSameEntityAs(other: AnyComponentHandle) {
     return this.data === other.data;
   }
 
@@ -175,15 +175,15 @@ export class EntityHandle {
   }
 
   has(component: AnyIdHandle): boolean;
-  has(relationship: AnyComponentHandle, target: EntityHandle): boolean;
-  has(componentOrRelationship: AnyIdHandle, target?: EntityHandle): boolean {
+  has(relationship: AnyComponentHandle, target: AnyComponentHandle): boolean;
+  has(
+    componentOrRelationship: AnyIdHandle,
+    target?: AnyComponentHandle,
+  ): boolean {
     if (target === undefined) {
       return this.backend.has(this.data, componentOrRelationship.data);
     }
-    if (
-      componentOrRelationship instanceof ComponentHandle ||
-      componentOrRelationship instanceof EntityHandle
-    ) {
+    if (componentOrRelationship.data instanceof Entity) {
       return this.backend.has(
         this.data,
         this.backend.pair(componentOrRelationship.data, target.data),
@@ -194,16 +194,13 @@ export class EntityHandle {
   }
 
   remove(id: AnyIdHandle): void;
-  remove(relationship: AnyComponentHandle, target: EntityHandle): void;
-  remove(component: AnyIdHandle, target?: EntityHandle) {
+  remove(relationship: AnyComponentHandle, target: AnyComponentHandle): void;
+  remove(component: AnyIdHandle, target?: AnyComponentHandle) {
     if (target === undefined) {
       this.backend.remove(this.data, component.data);
       return;
     }
-    if (
-      component instanceof ComponentHandle ||
-      component instanceof EntityHandle
-    ) {
+    if (component.data instanceof Entity) {
       this.backend.remove(
         this.data,
         this.backend.pair(component.data, target.data),
@@ -214,24 +211,15 @@ export class EntityHandle {
     throw new Error("Invalid arguments for remove");
   }
 
-  add(component: AnyComponentHandle): void;
-  add(fullRelationship: AnyRelationshipHandle): void;
-  add(relationship: AnyComponentHandle, target: EntityHandle): void;
-  add(first: AnyIdHandle, second?: EntityHandle) {
-    if (first instanceof EntityHandle && second === undefined) {
+  add(component: AnyIdHandle): void;
+  add(relationship: AnyComponentHandle, target: AnyComponentHandle): void;
+  add(first: AnyIdHandle, second?: AnyComponentHandle) {
+    if (second === undefined) {
       this.backend.add(this.data, first.data);
       return;
     }
-    if (first instanceof EntityHandle && second !== undefined) {
+    if (first.data instanceof Entity) {
       this.backend.add(this.data, this.backend.pair(first.data, second.data));
-      return;
-    }
-    if (
-      (first instanceof RelationshipTagHandle ||
-        first instanceof RelationshipComponentHandle) &&
-      second === undefined
-    ) {
-      this.backend.add(this.data, first.data);
       return;
     }
     throw new Error("Bad arguments for add");
@@ -245,15 +233,15 @@ export class EntityHandle {
     explicitRelationship: RelationshipComponentHandle<T>,
     newVal: InferType<T>,
   ): void;
-  set<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
-    target: EntityHandle,
-    newVal: InferType<T>,
-  ): void;
   set<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
     component: ComponentHandle<T1>,
     target: ComponentHandle<T2>,
     newVal: InferType<T1>,
+  ): void;
+  set<T extends ComponentDataSchema>(
+    component: ComponentHandle<T>,
+    target: EntityHandle,
+    newVal: InferType<T>,
   ): void;
   set<T extends ComponentDataSchema>(
     component: EntityHandle,
@@ -265,25 +253,17 @@ export class EntityHandle {
     second: AnyComponentHandle | InferType<T>,
     third?: InferType<T>,
   ) {
-    if (
-      first instanceof ComponentHandle &&
-      !(second instanceof EntityHandle) &&
-      third === undefined
-    ) {
-      this.backend.set(this.data, first.data, second);
-      return;
-    }
-    if (first instanceof RelationshipComponentHandle && third === undefined) {
+    if (third === undefined) {
       this.backend.set(this.data, first.data, second);
       return;
     }
     if (
-      (first instanceof EntityHandle || first instanceof ComponentHandle) &&
-      (second instanceof EntityHandle || second instanceof ComponentHandle)
+      first.data instanceof Entity &&
+      (second as EntityHandle).data instanceof Entity
     ) {
       this.backend.set(
         this.data,
-        this.backend.pair(first.data, second.data),
+        this.backend.pair(first.data, (second as EntityHandle).data),
         third,
       );
       return;
@@ -316,25 +296,10 @@ export class EntityHandle {
       | RelationshipComponentHandle<ComponentDataSchema>,
     second?: AnyComponentHandle,
   ) {
-    if (first instanceof ComponentHandle && second === undefined) {
+    if (second === undefined) {
       return this.backend.get(this.data, first.data);
     }
-    if (first instanceof RelationshipComponentHandle && second === undefined) {
-      return this.backend.get(this.data, first.data);
-    }
-    if (first instanceof ComponentHandle && second instanceof EntityHandle) {
-      return this.backend.get(
-        this.data,
-        this.backend.pair(first.data, second.data),
-      );
-    }
-    if (first instanceof EntityHandle && second instanceof ComponentHandle) {
-      return this.backend.get(
-        this.data,
-        this.backend.pair(first.data, second.data),
-      );
-    }
-    if (first instanceof ComponentHandle && second instanceof ComponentHandle) {
+    if (first.data instanceof Entity && second.data instanceof Entity) {
       return this.backend.get(
         this.data,
         this.backend.pair(first.data, second.data),
@@ -369,41 +334,48 @@ export class EntityHandle {
   }
 }
 
+export class EntityHandle extends EntityHandleBase {
+  __entityHandleBrand: undefined = undefined;
+}
+
 export class ComponentHandle<
   // needed for type inference when using the handle, even if not used directly here
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   T extends ComponentDataSchema,
-> extends EntityHandle {
-  constructor(
-    public _data: Entity,
-    backend: Backend,
-  ) {
-    super(_data, backend);
+> extends EntityHandleBase {
+  getInitializer() {
+    return this.backend.initializer(this.data) as T;
   }
 }
 
-export class RelationshipTagHandle {
+class PairHandleBase {
   data: Pair;
-  // eslint-disable-next-line no-unused-private-class-members
   #backend: Backend;
 
   constructor(_data: Pair, backend: Backend) {
     this.data = _data;
     this.#backend = backend;
   }
+
+  relationship() {
+    return new EntityHandle(this.data.relationship, this.#backend);
+  }
+
+  target() {
+    return new EntityHandle(this.data.target, this.#backend);
+  }
 }
 
-// needed for type inference when using the handle, even if not used directly here
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class RelationshipComponentHandle<T extends ComponentDataSchema> {
-  data: Pair;
-  // eslint-disable-next-line no-unused-private-class-members
-  #backend: Backend;
+export class RelationshipTagHandle extends PairHandleBase {
+  _tagPairBrand: undefined = undefined;
+}
 
-  constructor(_data: Pair, backend: Backend) {
-    this.data = _data;
-    this.#backend = backend;
-  }
+export class RelationshipComponentHandle<
+  // needed for type inference when using the handle, even if not used directly here
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  T extends ComponentDataSchema,
+> extends PairHandleBase {
+  _componentPairBrand: undefined = undefined;
 }
 
 type AnyComponentHandle = EntityHandle | ComponentHandle<ComponentDataSchema>;

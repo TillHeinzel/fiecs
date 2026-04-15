@@ -55,6 +55,10 @@ export class Backend {
     return this.storage.ensurePair(relationship, target);
   }
 
+  initializer(component: Entity) { 
+    return this.components.entries().find(([, comp]) => comp === component)?.[0];
+  }
+
   getName(entity: Entity) {
     return entity.name;
   }

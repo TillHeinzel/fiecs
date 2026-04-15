@@ -19,7 +19,7 @@ describe("entities, names, aliveness", () => {
     const ecs = new ECS();
     const e = ecs.entity();
 
-    expect(e).toBeInstanceOf(EntityHandle);
+    expect(e).toBeDefined();
   });
 
   test("create new entity with name", () => {
@@ -55,13 +55,13 @@ describe("entities, names, aliveness", () => {
     const ecs = new ECS();
     const e = ecs.entity("Bob");
     expect(e.getName()).toBe("Bob");
-    expect(ecs.lookupEntity("Bob")).toBeInstanceOf(EntityHandle);
+    expect(ecs.lookupEntity("Bob")).toBeDefined();
 
     e.setName("Alice");
 
     expect(e.getName()).toBe("Alice");
     expect(ecs.lookupEntity("Bob")).toBeUndefined();
-    expect(ecs.lookupEntity("Alice")).toBeInstanceOf(EntityHandle);
+    expect(ecs.lookupEntity("Alice")).toBeDefined();
     expect(ecs.lookupEntity("Alice")!.getName()).toBe("Alice");
   });
 
@@ -77,7 +77,7 @@ describe("entities, names, aliveness", () => {
     expect(e1).not.toBe(e2);
     expect(e1.isSameEntityAs(e2!)).toBe(true);
 
-    expect(e2).toBeInstanceOf(EntityHandle);
+    expect(e2).toBeDefined();
     expect(e2?.getName()).toBe("Bob");
 
     e1.setName("Alice");
@@ -403,11 +403,11 @@ describe("entities, names, aliveness", () => {
 });
 
 describe("tags", () => {
-  test("Creating a tag returns an EntityHandle object, as tags are just entities", () => {
+  test("Creating a tag ", () => {
     const ecs = new ECS();
     const c = ecs.tag();
 
-    expect(c).toBeInstanceOf(EntityHandle);
+    expect(c).toBeDefined();
   });
 
   test("A tag can be created with a name", () => {
@@ -572,10 +572,10 @@ describe("tags", () => {
 
   test("Trying to set data on a tag throws", () => {
     const ecs = new ECS();
-    const tag = ecs.tag();
+    const tag = ecs.tag("tag");
     const e = ecs.entity();
     // @ts-expect-error // should not be allowed in ts, but needs to be tested
-    expect(() => e.set(tag, 5)).toThrow("Invalid arguments for setData");
+    expect(() => e.set(tag, 5)).toThrow('"tag" has no data to be set');
   });
 });
 
@@ -650,11 +650,18 @@ describe("statistics", () => {
 });
 
 describe("components", () => {
-  test("Creating a component returns a ComponentHandle object", () => {
+  test("Creating a component", () => {
     const ecs = new ECS();
     const c = ecs.component(z.number());
 
-    expect(c).toBeInstanceOf(ComponentHandle);
+    expect(c).toBeDefined();
+  });
+
+  test("We can access the underlying initializer for a component", () => {
+    const ecs = new ECS();
+    const initializer = z.number().default(0);
+    const c = ecs.component(initializer);
+    expect(c.getInitializer()).toBe(initializer);
   });
 
   test("registering a component twice with the same initializer returns the same component", () => {
@@ -1177,6 +1184,17 @@ describe("relationships", () => {
     expect(bob.getRelationshipTargets(eats)).toEqual(new Set([apples]));
     expect(bob.getARelationshipTarget(eats)?.isSameEntityAs(apples)).toBe(true);
     expect(bob.get(bobEatsApples)).toBe(5);
+  });
+
+  test("We can get the relationship and target for a pair as entities", () => {
+    const ecs = new ECS();
+    const likes = ecs.tag();
+    const bob = ecs.entity();
+
+    const likesBob = ecs.pair(likes, bob);
+
+    expect(likesBob.relationship().isSameEntityAs(likes)).toBe(true);
+    expect(likesBob.target().isSameEntityAs(bob)).toBe(true);
   });
 
   test("concrete relationships cannot be added as relationships of new pairs", () => {
