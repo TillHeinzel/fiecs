@@ -1,13 +1,12 @@
 import { AtomicOperationManager } from "./AtomicOperationManager";
 import { Archetype, Entity, Id, Pair } from "./BasicObjects";
-import { ensureRelationshipId } from "./ensureRelationshipId";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { makeQuery, Query } from "./Query";
 import { ECSStorage, LinkType } from "./Storage";
 
 export class Backend {
-  storage = new ECSStorage<Archetype, Entity, Pair>(Archetype, Entity);
+  storage = new ECSStorage(Archetype, Entity, Pair);
   nameMap = new NameMap();
   entities: Set<Entity> = new Set();
   components: Map<unknown, Entity> = new Map();
@@ -53,7 +52,7 @@ export class Backend {
   }
 
   pair(relationship: Entity, target: Entity) {
-    return ensureRelationshipId(relationship, target);
+    return this.storage.ensurePair(relationship, target);
   }
 
   getName(entity: Entity) {

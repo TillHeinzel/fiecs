@@ -13,9 +13,11 @@ export class ECSStorage<
       new (props: { components: ReadonlySet<Entity | Pair> }): Archetype;
     },
     makeEntity: { new (o: object): Entity },
+    makePair: { new (props: { relationship: Entity; target: Entity }): Pair },
   ) {
     this.makeArchetype = makeArchetype;
     this.makeEntity = makeEntity;
+    this.makePair = makePair;
     this.emptyArchetype = this.newArchetype(new Set());
     this.destructedArchetype = this.newArchetype(new Set());
     this.archetypes = new Set([this.emptyArchetype]);
@@ -23,6 +25,7 @@ export class ECSStorage<
 
   makeArchetype;
   makeEntity;
+  makePair;
 
   newArchetype(components: ReadonlySet<Entity | Pair>) {
     return new this.makeArchetype({ components });
@@ -33,6 +36,10 @@ export class ECSStorage<
     this.emptyArchetype.entities.add(newEntity);
     newEntity.archetype = this.emptyArchetype;
     return newEntity;
+  }
+
+  newPair(relationship: Entity, target: Entity) {
+    return new this.makePair({ relationship, target });
   }
 
   emptyArchetype: Archetype;
@@ -60,6 +67,24 @@ export class ECSStorage<
     const entity = this.newEntity();
     this.emptyArchetype.entities.add(entity);
     return entity;
+  }
+
+  ensurePair(relationship: Entity, target: Entity): Pair {
+    const lookupRelationshipId = () => {
+      return relationship.backLinksRelationship?.get(target);
+    };
+
+    const createRelationshipId = () => {
+      const newPair = this.newPair(relationship, target);
+      if (relationship.backLinksRelationship === undefined)
+        relationship.backLinksRelationship = new Map();
+      relationship.backLinksRelationship.set(target, newPair);
+      if (target.backLinksTarget === undefined)
+        target.backLinksTarget = new Map();
+      target.backLinksTarget.set(relationship, newPair);
+      return newPair;
+    };
+    return lookupRelationshipId() ?? createRelationshipId();
   }
 
   #lookupArchetype(components: ReadonlySet<Entity | Pair>) {
