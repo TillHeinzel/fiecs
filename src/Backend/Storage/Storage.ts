@@ -2,6 +2,8 @@ import { IStorageArchetype } from "./IArchetype";
 import { IStorageEntity } from "./IEntity";
 import { IStoragePair } from "./IPair";
 import { LinkType, reverseLinkType } from "./Links";
+import { Query, QueryBuilder } from "./Query";
+import { Wildcard } from "./Wildcard";
 
 export class ECSStorage<
   Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
@@ -19,7 +21,6 @@ export class ECSStorage<
     this.makeEntity = makeEntity;
     this.makePair = makePair;
     this.emptyArchetype = this.newArchetype(new Set());
-    this.destructedArchetype = this.newArchetype(new Set());
     this.archetypes = new Set([this.emptyArchetype]);
   }
 
@@ -27,25 +28,28 @@ export class ECSStorage<
   makeEntity;
   makePair;
 
-  newArchetype(components: ReadonlySet<Entity | Pair>) {
+  private newArchetype(components: ReadonlySet<Entity | Pair>) {
     return new this.makeArchetype({ components });
   }
 
-  newEntity() {
+  private newEntity() {
     const newEntity = new this.makeEntity({});
     this.emptyArchetype.entities.add(newEntity);
     newEntity.archetype = this.emptyArchetype;
     return newEntity;
   }
 
-  newPair(relationship: Entity, target: Entity) {
+  private newPair(relationship: Entity, target: Entity) {
     return new this.makePair({ relationship, target });
   }
 
-  emptyArchetype: Archetype;
-  destructedArchetype: Archetype;
-  archetypes: Set<Archetype>;
+  private emptyArchetype: Archetype;
+  private archetypes: Set<Archetype>;
   addNewArchetypeCallbacks: Set<(archetype: Archetype) => void> = new Set();
+
+  wildcard = new Wildcard<Archetype, Entity, Pair>();
+
+  queryBuilder = new QueryBuilder<Archetype, Entity, Pair>();
 
   #moveToArchetype(entity: Entity, newArchetype: Archetype) {
     entity.archetype?.entities.delete(entity);
@@ -70,21 +74,18 @@ export class ECSStorage<
   }
 
   ensurePair(relationship: Entity, target: Entity): Pair {
-    const lookupRelationshipId = () => {
-      return relationship.backLinksRelationship?.get(target);
+    const lookupExistingPair = () => {
+      return relationship.lookupPairWith(target);
     };
 
-    const createRelationshipId = () => {
+    const createNewPair = () => {
       const newPair = this.newPair(relationship, target);
-      if (relationship.backLinksRelationship === undefined)
-        relationship.backLinksRelationship = new Map();
-      relationship.backLinksRelationship.set(target, newPair);
-      if (target.backLinksTarget === undefined)
-        target.backLinksTarget = new Map();
-      target.backLinksTarget.set(relationship, newPair);
+
+      relationship.getRelationshipWildcard().addPairBacklink(newPair);
+
       return newPair;
     };
-    return lookupRelationshipId() ?? createRelationshipId();
+    return lookupExistingPair() ?? createNewPair();
   }
 
   #lookupArchetype(components: ReadonlySet<Entity | Pair>) {
@@ -96,7 +97,7 @@ export class ECSStorage<
 
     const setOfArchetypes = components
       .keys()
-      .map((component) => component.backLinksComponent)
+      .map((component) => new Set(component.getBacklinks()))
       .filter((setThisComponent) => setThisComponent !== undefined)
       .reduce((setOfArchetypes, setThisComponent) =>
         setOfArchetypes.intersection(setThisComponent),
@@ -117,11 +118,11 @@ export class ECSStorage<
   #addNewArchetype(components: ReadonlySet<Entity | Pair>) {
     const newArchetype: Archetype = this.newArchetype(components);
     this.archetypes.add(newArchetype);
+
+    this.wildcard.maybeAddBacklink(newArchetype);
+    this.wildcard.doubleWildcard.maybeAddBacklink(newArchetype);
     for (const id of components) {
-      if (id.backLinksComponent === undefined) {
-        id.backLinksComponent = new Set();
-      }
-      id.backLinksComponent.add(newArchetype);
+      id.addBacklink(newArchetype);
     }
     this.addNewArchetypeCallbacks.forEach((callback) => callback(newArchetype));
     return newArchetype;
@@ -147,16 +148,26 @@ export class ECSStorage<
     entity.componentData.set(id, newVal);
   }
 
-  has(entity: Entity, id: Entity | Pair) {
+  has(
+    entity: Entity,
+    id:
+      | Entity
+      | Pair
+      | Wildcard<Archetype, Entity, Pair>
+      | [
+          Entity | Wildcard<Archetype, Entity, Pair>,
+          Entity | Wildcard<Archetype, Entity, Pair>,
+        ],
+  ) {
     if (!entity.isAlive()) return false;
-    return entity.archetype.components.has(id);
+    return this.queryBuilder.buildAny(id).matches(entity.archetype);
   }
 
   get(entity: Entity, id: Entity | Pair) {
     return entity.componentData.get(id);
   }
 
-  remove(entity: Entity, id: Entity | Pair) {
+  private removeData(entity: Entity, id: Entity | Pair) {
     entity.componentData.delete(id);
   }
 
@@ -191,20 +202,7 @@ export class ECSStorage<
       return newArchetype;
     };
     this.#moveToArchetype(entity, lookupCheapLink() ?? establishNewLink());
-    toRemove.forEach((id) => this.remove(entity, id));
-  }
-
-  destructAllWith(id: Entity | Pair, destructEntity: (entity: Entity) => void) {
-    if (id.backLinksComponent === undefined) return;
-
-    id.backLinksComponent
-      .keys()
-      .flatMap((archetype) => archetype.entities.keys())
-      .forEach((entity) => destructEntity(entity));
-
-    id.backLinksComponent.forEach((archetype) =>
-      this.deleteArchetype(archetype),
-    );
+    toRemove.forEach((id) => this.removeData(entity, id));
   }
 
   cleanup(archetype: Archetype) {
@@ -213,66 +211,27 @@ export class ECSStorage<
     }
   }
 
-  removeFromAll(id: Entity | Pair) {
-    if (id.backLinksComponent === undefined) return;
-
-    for (const archetype of id.backLinksComponent) {
-      this.removeComponentsFromArchetypeAndDeleteIt(archetype, new Set([id]));
-    }
-  }
-
-  removeFromAllAdd(
-    id: Entity | Pair,
-    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
+  removeFromAll(
+    queries: IteratorObject<Query<Archetype, Entity, Pair, Entity | Pair>>,
   ) {
-    if (id.backLinksComponent === undefined) return;
-
-    for (const archetype of id.backLinksComponent) {
-      addToRemove(archetype, id);
-    }
-  }
-
-  removeFromAllAsRelationshipAdd(
-    entity: Entity,
-    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
-  ) {
-    if (entity.backLinksRelationship === undefined) return;
-
-    entity.backLinksRelationship.forEach((pair) => {
-      pair.backLinksComponent.forEach((archetype) => {
-        addToRemove(archetype, pair);
-      });
-    });
-  }
-
-  removeFromAllAsTargetAdd(
-    entity: Entity,
-    addToRemove: (archetype: Archetype, component: Entity | Pair) => void,
-  ) {
-    if (entity.backLinksTarget === undefined) return;
-    entity.backLinksTarget.forEach((pair) => {
-      pair.backLinksComponent.forEach((archetype) => {
-        addToRemove(archetype, pair);
-      });
-    });
-  }
-
-  removeFromAllFull(entity: Entity) {
     const archetypesToDelete = new Map<Archetype, Set<Entity | Pair>>();
 
     const addArchetypeToDelete = (
       archetype: Archetype,
-      component: Entity | Pair,
+      components: Set<Entity | Pair>,
     ) => {
       if (!archetypesToDelete.has(archetype)) {
         archetypesToDelete.set(archetype, new Set());
       }
-      archetypesToDelete.get(archetype)!.add(component);
+      const existingSet = archetypesToDelete.get(archetype)!;
+      components.forEach(existingSet.add.bind(existingSet));
     };
 
-    this.removeFromAllAdd(entity, addArchetypeToDelete);
-    this.removeFromAllAsRelationshipAdd(entity, addArchetypeToDelete);
-    this.removeFromAllAsTargetAdd(entity, addArchetypeToDelete);
+    queries.forEach((query) =>
+      query.forEachArchetype((archetype, match) =>
+        addArchetypeToDelete(archetype, match),
+      ),
+    );
 
     for (const [archetype, componentsToRemove] of archetypesToDelete) {
       this.removeComponentsFromArchetypeAndDeleteIt(
@@ -282,7 +241,7 @@ export class ECSStorage<
     }
   }
 
-  removeComponentsFromArchetypeAndDeleteIt(
+  private removeComponentsFromArchetypeAndDeleteIt(
     archetype: Archetype,
     componentsToRemove: Set<Entity | Pair>,
   ) {
@@ -303,7 +262,9 @@ export class ECSStorage<
 
     for (const entity of archetype.entities) {
       this.#moveToArchetype(entity, archetypeToMoveEntitiesTo);
-      componentsToRemove.forEach((component) => this.remove(entity, component));
+      componentsToRemove.forEach((component) =>
+        this.removeData(entity, component),
+      );
     }
 
     this.deleteArchetype(archetype);

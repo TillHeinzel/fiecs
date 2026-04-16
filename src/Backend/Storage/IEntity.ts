@@ -2,6 +2,7 @@ import { MergeCtor, MixinBase } from "#/mixins/mixins";
 
 import { IStorageArchetype } from "./IArchetype";
 import { IStoragePair } from "./IPair";
+import { RelationshipWildcard, WildcardTarget } from "./Wildcard";
 
 export interface IStorageEntity<
   Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
@@ -10,15 +11,29 @@ export interface IStorageEntity<
 > {
   archetype?: Archetype;
   componentData: Map<Entity | Pair, unknown>;
-  // archetypes that have this entity as a component
-  backLinksComponent?: Set<Archetype>;
-  // relationships where this entity is the type
-  backLinksRelationship?: Map<Entity, Pair>;
-  // relationships where this entity is the target
-  backLinksTarget?: Map<Entity, Pair>;
-  target?: undefined; // to distinguish from Pair
+
+  // [this, *]
+  relationshipWildcard?: RelationshipWildcard<Archetype, Entity, Pair>;
+  // [*, this]
+  wildcardTarget?: WildcardTarget<Archetype, Entity, Pair>;
+
+  removeBacklink(archetype: Archetype): void;
+  getBacklinks(): IteratorObject<Archetype>;
+  addBacklink(archetype: Archetype): void;
+
+  matches(archetype: Archetype): boolean;
+
+  match(archetype: Archetype): IteratorObject<Entity>;
+  matchingArchetypes(): IteratorObject<[Archetype, Set<Entity>]>;
+
+  getRelationshipWildcard(): RelationshipWildcard<Archetype, Entity, Pair>;
+  getWildcardTarget(): WildcardTarget<Archetype, Entity, Pair>;
+  lookupPairWith(target: Entity): Pair | undefined;
 
   isPair(): this is Pair;
+
+  isEntity(): this is Entity;
+
   isAlive(): this is IStorageEntity<Archetype, Entity, Pair> & {
     archetype: Archetype;
   };
@@ -44,12 +59,11 @@ export const StorageEntityMixin =
     {
       archetype?: Archetype;
       componentData: Map<Entity | Pair, unknown> = new Map();
-      // archetypes that have this entity as a component
-      backLinksComponent?: Set<Archetype> = new Set();
-      // relationships where this entity is the type
-      backLinksRelationship?: Map<Entity, Pair>;
-      // relationships where this entity is the target
-      backLinksTarget?: Map<Entity, Pair>;
+
+      backLinksComponent?: Set<Archetype> | undefined;
+
+      relationshipWildcard?: RelationshipWildcard<Archetype, Entity, Pair>;
+      wildcardTarget?: WildcardTarget<Archetype, Entity, Pair>;
 
       constructor(props: object) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -59,11 +73,67 @@ export const StorageEntityMixin =
       isPair(): this is Pair {
         return false;
       }
+      isEntity(): this is Entity {
+        return true;
+      }
 
       isAlive(): this is IStorageEntity<Archetype, Entity, Pair> & {
         archetype: Archetype;
       } {
         return this.archetype !== undefined;
+      }
+
+      matches(archetype: Archetype): boolean {
+        return this.backLinksComponent?.has(archetype) ?? false;
+      }
+
+      match(archetype: Archetype): IteratorObject<Entity> {
+        return archetype.components
+          .keys()
+          .filter((component) => component.isEntity())
+          .filter((component) => component === (this as unknown as Entity));
+      }
+
+      matchingArchetypes(): IteratorObject<[Archetype, Set<Entity>]> {
+        if (!this.backLinksComponent) return [][Symbol.iterator]();
+        return this.backLinksComponent
+          .keys()
+          .map((archetype) => [
+            archetype,
+            new Set<Entity>([this as unknown as Entity]),
+          ]);
+      }
+
+      removeBacklink(archetype: Archetype): void {
+        this.backLinksComponent?.delete(archetype);
+      }
+      getBacklinks(): IteratorObject<Archetype> {
+        return this.backLinksComponent?.values() ?? [][Symbol.iterator]();
+      }
+      addBacklink(archetype: Archetype): void {
+        if (!this.backLinksComponent) {
+          this.backLinksComponent = new Set();
+        }
+        this.backLinksComponent.add(archetype);
+      }
+
+      getRelationshipWildcard(): RelationshipWildcard<Archetype, Entity, Pair> {
+        if (!this.relationshipWildcard) {
+          this.relationshipWildcard = new RelationshipWildcard(
+            this as unknown as Entity,
+          );
+        }
+        return this.relationshipWildcard;
+      }
+      getWildcardTarget(): WildcardTarget<Archetype, Entity, Pair> {
+        if (!this.wildcardTarget) {
+          this.wildcardTarget = new WildcardTarget(this as unknown as Entity);
+        }
+        return this.wildcardTarget;
+      }
+
+      lookupPairWith(target: Entity): Pair | undefined {
+        return this.relationshipWildcard?.lookupTarget(target);
       }
 
       getARelationshipPair(relationship: Entity): Pair | undefined {
@@ -94,8 +164,8 @@ export const StorageEntityMixin =
         return (
           (this.backLinksComponent !== undefined &&
             this.backLinksComponent.size > 0) ||
-          (this.backLinksRelationship !== undefined &&
-            this.backLinksRelationship.size > 0)
+          (this.relationshipWildcard !== undefined &&
+            this.relationshipWildcard.hasBacklinks())
         );
       }
     };

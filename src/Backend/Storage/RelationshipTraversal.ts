@@ -3,8 +3,8 @@ import { Entity } from "../BasicObjects";
 export function traverseRelationship(
   relationship: Entity,
   start: Entity,
-  direction: typeof up | typeof down,
-  algorithm: typeof breadthFirst | typeof depthFirst = depthFirst,
+  direction: typeof down,
+  algorithm: typeof depthFirst = depthFirst,
 ) {
   return {
     visit(callback: (target: Entity) => void) {
@@ -16,23 +16,6 @@ export function traverseRelationship(
       return targets;
     },
   };
-}
-
-export function breadthFirst(
-  entity: Entity,
-  relationship: Entity,
-  getTargets: (entity: Entity, relationship: Entity) => IteratorObject<Entity>,
-  callback: (target: Entity) => void,
-) {
-  recurse(getTargets(entity, relationship));
-
-  function recurse(targets: IteratorObject<Entity>) {
-    targets.forEach((target) => {
-      callback(target);
-    });
-
-    recurse(targets.flatMap((target) => getTargets(target, relationship)));
-  }
 }
 
 export function depthFirst(
@@ -49,15 +32,6 @@ export function depthFirst(
       recurse(getTargets(target, relationship));
     });
   }
-}
-
-export function up(entity: Entity, relationship: Entity) {
-  return (
-    relationship.backLinksRelationship
-      ?.get(entity)
-      ?.backLinksComponent?.keys()
-      .flatMap((archetype) => archetype.entities) ?? new Set<Entity>().keys()
-  );
 }
 
 export function down(entity: Entity, relationship: Entity) {

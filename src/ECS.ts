@@ -1,31 +1,97 @@
-import { Backend, Entity, Pair } from "./Backend";
+import * as Backend from "./Backend";
 import { builtinTraits } from "./builtinTraits";
 
-export class ECS {
-  private backend: Backend = new Backend();
+class BackendHandleBase {
+  protected backend: Backend.Backend;
+
+  constructor(backend: Backend.Backend) {
+    this.backend = backend;
+  }
+
+  protected mapFromBackend(
+    component: Backend.Entity | Backend.Pair,
+  ): Tag | PairTag {
+    if (component instanceof Backend.Entity) {
+      return new Entity(component as unknown as Backend.Entity, this.backend);
+    }
+    return new PairTag(component as unknown as Backend.Pair, this.backend);
+  }
+
+  protected mapToBackend([first, second]: [undefined, undefined]): undefined;
+  protected mapToBackend([first, second]: [
+    AnyId | Wildcard,
+    AnyComponent | Wildcard | undefined,
+  ]):
+    | Backend.Entity
+    | Backend.Pair
+    | Backend.Wildcard
+    | [Backend.Entity, Backend.Entity]
+    | [Backend.Entity, Backend.Wildcard]
+    | [Backend.Wildcard, Backend.Entity]
+    | [Backend.Wildcard, Backend.Wildcard];
+  protected mapToBackend([first, second]: [
+    AnyId | Wildcard | undefined,
+    AnyComponent | Wildcard | undefined,
+  ]) {
+    if (first === undefined) {
+      return undefined;
+    }
+    if (second === undefined) {
+      return this.mapOne(first);
+    }
+    if (isPair(first)) {
+      throw new Error("Cannot create a pair with a pair as the relationship");
+    }
+    return [this.mapOne(first), this.mapOne(second)] as
+      | [Backend.Entity, Backend.Entity]
+      | [Backend.Entity, Backend.Wildcard]
+      | [Backend.Wildcard, Backend.Entity]
+      | [Backend.Wildcard, Backend.Wildcard];
+  }
+
+  private mapOne(first: AnyComponent): Backend.Entity;
+  private mapOne(first: AnyPair): Backend.Pair;
+  private mapOne(first: Wildcard | "*"): Backend.Wildcard;
+  private mapOne(
+    first: AnyId | Wildcard | "*",
+  ): Backend.Entity | Backend.Pair | Backend.Wildcard;
+  private mapOne(first: AnyComponent | AnyPair | Wildcard | "*") {
+    if (first === "*") {
+      return this.backend.wildcard;
+    }
+    return first.data;
+  }
+}
+
+export class World extends BackendHandleBase {
+  constructor() {
+    super(new Backend.Backend());
+  }
 
   builtin = (() => {
     const traits = builtinTraits(this.backend);
 
     return {
-      Trait: new EntityHandle(traits.Trait, this.backend),
-      Relationship: new EntityHandle(traits.Relationship, this.backend),
-      RelationshipHasNoData: new EntityHandle(
+      Trait: new Entity(traits.Trait, this.backend),
+      Relationship: new Entity(traits.Relationship, this.backend),
+      RelationshipHasNoData: new Entity(
         traits.RelationshipHasNoData,
         this.backend,
       ),
-      With: new EntityHandle(traits.With, this.backend),
-      Acyclic: new EntityHandle(traits.Acyclic, this.backend),
-      Singleton: new EntityHandle(traits.Singleton, this.backend),
-      Symmetric: new EntityHandle(traits.Symmetric, this.backend),
-      Target: new EntityHandle(traits.Target, this.backend),
-      TargetMustBeDefaultInitializable: new EntityHandle(
+      With: new Entity(traits.With, this.backend),
+      Acyclic: new Entity(traits.Acyclic, this.backend),
+      Singleton: new Entity(traits.Singleton, this.backend),
+      Symmetric: new Entity(traits.Symmetric, this.backend),
+      Target: new Entity(traits.Target, this.backend),
+      TargetMustBeDefaultInitializable: new Entity(
         traits.TargetMustBeDefaultInitializable,
         this.backend,
       ),
-      Exclusive: new EntityHandle(traits.Exclusive, this.backend),
+      Exclusive: new Entity(traits.Exclusive, this.backend),
     };
   })();
+
+  wildcard: Wildcard = { data: this.backend.wildcard };
 
   startStatistics() {
     this.backend.storage.startStatistics();
@@ -48,36 +114,33 @@ export class ECS {
   }
 
   entity(name?: string) {
-    return new EntityHandle(this.backend.entity(name), this.backend);
+    return new Entity(this.backend.entity(name), this.backend);
   }
 
   tag(name?: string) {
-    return new EntityHandle(this.backend.tag(name), this.backend);
+    return new Entity(this.backend.tag(name), this.backend);
   }
 
   component<T extends ComponentDataSchema>(schema: T) {
-    return new ComponentHandle<T>(this.backend.component(schema), this.backend);
+    return new Component<T>(this.backend.component(schema), this.backend);
   }
 
   pair<T extends ComponentDataSchema>(
-    relationship: ComponentHandle<T>,
-    target: EntityHandle,
-  ): RelationshipComponentHandle<T>;
-  pair(relationship: EntityHandle, target: EntityHandle): RelationshipTagHandle;
-  pair(
-    relationship: EntityHandle | ComponentHandle<ComponentDataSchema>,
-    target: EntityHandle,
-  ) {
+    relationship: Component<T>,
+    target: Entity,
+  ): PairComponent<T>;
+  pair(relationship: Entity, target: Entity): PairTag;
+  pair(relationship: Entity | Component<ComponentDataSchema>, target: Entity) {
     this.backend.checkValid(relationship.data);
 
-    if (relationship instanceof ComponentHandle) {
-      return new RelationshipComponentHandle(
+    if (relationship instanceof Component) {
+      return new PairComponent(
         this.backend.pair(relationship.data, target.data),
         this.backend,
       );
     }
-    if (relationship instanceof EntityHandle) {
-      return new RelationshipTagHandle(
+    if (relationship instanceof Entity) {
+      return new PairTag(
         this.backend.pair(relationship.data, target.data),
         this.backend,
       );
@@ -86,49 +149,29 @@ export class ECS {
 
   lookupEntity(name: string) {
     const entityData = this.backend.lookupEntity(name);
-    return entityData ? new EntityHandle(entityData, this.backend) : undefined;
+    return entityData ? new Entity(entityData, this.backend) : undefined;
   }
 
-  removeFromAll(component: AnyComponentHandle): void;
+  removeFromAll(component: AnyId | Wildcard): void;
   removeFromAll(
-    component: AnyComponentHandle,
-    target: AnyComponentHandle,
+    component: AnyComponent | Wildcard,
+    target: AnyComponent | Wildcard,
   ): void;
-  removeFromAll(component: AnyRelationshipHandle): void;
-  removeFromAll(first: AnyIdHandle, second?: AnyComponentHandle) {
-    if (second === undefined) {
-      this.backend.removeFromAll(first.data);
-      return;
-    }
-    if (first instanceof ComponentHandle || first instanceof EntityHandle) {
-      this.backend.removeFromAll(this.backend.pair(first.data, second.data));
-      return;
-    }
-
-    throw new Error("Invalid arguments for removeFromAll");
+  removeFromAll(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+    this.backend.removeFromAll(this.mapToBackend([first, second]));
   }
 
-  destructAllWith(component: AnyComponentHandle): void;
+  destructAllWith(component: AnyId | Wildcard): void;
   destructAllWith(
-    component: AnyComponentHandle,
-    target: AnyComponentHandle,
+    component: AnyComponent | Wildcard,
+    target: AnyComponent | Wildcard,
   ): void;
-  destructAllWith(component: AnyRelationshipHandle): void;
-  destructAllWith(first: AnyIdHandle, second?: AnyComponentHandle) {
-    if (second === undefined) {
-      this.backend.destructAllWith(first.data);
-      return;
-    }
-    if (first instanceof ComponentHandle || first instanceof EntityHandle) {
-      this.backend.destructAllWith(this.backend.pair(first.data, second.data));
-      return;
-    }
-
-    throw new Error("Invalid arguments for destructAllWith");
+  destructAllWith(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+    this.backend.destructAllWith(this.mapToBackend([first, second]));
   }
 
   set<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
+    component: Component<T>,
     newVal: InferType<T>,
   ): void {
     this.backend.add(component.data, this.builtin.Singleton.data);
@@ -141,13 +184,12 @@ export class ECS {
   }
 }
 
-class EntityHandleBase {
-  data: Entity;
-  backend: Backend;
+class EntityHandleBase extends BackendHandleBase {
+  data: Backend.Entity;
 
-  constructor(data: Entity, backend: Backend) {
+  constructor(data: Backend.Entity, backend: Backend.Backend) {
+    super(backend);
     this.data = data;
-    this.backend = backend;
   }
 
   getName() {
@@ -158,7 +200,7 @@ class EntityHandleBase {
     this.backend.setName(this.data, name);
   }
 
-  isSameEntityAs(other: AnyComponentHandle) {
+  isSameAs(other: AnyId) {
     return this.data === other.data;
   }
 
@@ -174,51 +216,32 @@ class EntityHandleBase {
     this.backend.clear(this.data);
   }
 
-  has(component: AnyIdHandle): boolean;
-  has(relationship: AnyComponentHandle, target: AnyComponentHandle): boolean;
+  has(component: AnyId | Wildcard): boolean;
   has(
-    componentOrRelationship: AnyIdHandle,
-    target?: AnyComponentHandle,
-  ): boolean {
-    if (target === undefined) {
-      return this.backend.has(this.data, componentOrRelationship.data);
-    }
-    if (componentOrRelationship.data instanceof Entity) {
-      return this.backend.has(
-        this.data,
-        this.backend.pair(componentOrRelationship.data, target.data),
-      );
-    }
-
-    throw new Error("Invalid arguments for has");
+    relationship: AnyComponent | Wildcard,
+    target: AnyComponent | Wildcard,
+  ): boolean;
+  has(first: AnyId | Wildcard, second?: AnyComponent | Wildcard): boolean {
+    return this.backend.has(this.data, this.mapToBackend([first, second]));
   }
 
-  remove(id: AnyIdHandle): void;
-  remove(relationship: AnyComponentHandle, target: AnyComponentHandle): void;
-  remove(component: AnyIdHandle, target?: AnyComponentHandle) {
-    if (target === undefined) {
-      this.backend.remove(this.data, component.data);
-      return;
-    }
-    if (component.data instanceof Entity) {
-      this.backend.remove(
-        this.data,
-        this.backend.pair(component.data, target.data),
-      );
-      return;
-    }
-
-    throw new Error("Invalid arguments for remove");
+  remove(id: AnyId | Wildcard): void;
+  remove(
+    relationship: AnyComponent | Wildcard,
+    target: AnyComponent | Wildcard,
+  ): void;
+  remove(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+    this.backend.remove(this.data, this.mapToBackend([first, second]));
   }
 
-  add(component: AnyIdHandle): void;
-  add(relationship: AnyComponentHandle, target: AnyComponentHandle): void;
-  add(first: AnyIdHandle, second?: AnyComponentHandle) {
+  add(component: AnyId): void;
+  add(relationship: AnyComponent, target: AnyComponent): void;
+  add(first: AnyId, second?: AnyComponent) {
     if (second === undefined) {
       this.backend.add(this.data, first.data);
       return;
     }
-    if (first.data instanceof Entity) {
+    if (first.data instanceof Backend.Entity) {
       this.backend.add(this.data, this.backend.pair(first.data, second.data));
       return;
     }
@@ -226,31 +249,31 @@ class EntityHandleBase {
   }
 
   set<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
+    component: Component<T>,
     newVal: InferType<T>,
   ): void;
   set<T extends ComponentDataSchema>(
-    explicitRelationship: RelationshipComponentHandle<T>,
+    explicitRelationship: PairComponent<T>,
     newVal: InferType<T>,
   ): void;
   set<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
-    component: ComponentHandle<T1>,
-    target: ComponentHandle<T2>,
+    component: Component<T1>,
+    target: Component<T2>,
     newVal: InferType<T1>,
   ): void;
   set<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
-    target: EntityHandle,
+    component: Component<T>,
+    target: Entity,
     newVal: InferType<T>,
   ): void;
   set<T extends ComponentDataSchema>(
-    component: EntityHandle,
-    target: ComponentHandle<T>,
+    component: Entity,
+    target: Component<T>,
     newVal: InferType<T>,
   ): void;
   set<T extends ComponentDataSchema>(
-    first: EntityHandle | ComponentHandle<T> | RelationshipComponentHandle<T>,
-    second: AnyComponentHandle | InferType<T>,
+    first: Entity | Component<T> | PairComponent<T>,
+    second: AnyComponent | InferType<T>,
     third?: InferType<T>,
   ) {
     if (third === undefined) {
@@ -258,12 +281,12 @@ class EntityHandleBase {
       return;
     }
     if (
-      first.data instanceof Entity &&
-      (second as EntityHandle).data instanceof Entity
+      first.data instanceof Backend.Entity &&
+      (second as Entity).data instanceof Backend.Entity
     ) {
       this.backend.set(
         this.data,
-        this.backend.pair(first.data, (second as EntityHandle).data),
+        this.backend.pair(first.data, (second as Entity).data),
         third,
       );
       return;
@@ -273,33 +296,34 @@ class EntityHandleBase {
   }
 
   get<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
+    component: Component<T>,
   ): InferType<T> | undefined;
   get<T extends ComponentDataSchema>(
-    component: RelationshipComponentHandle<T>,
+    component: PairComponent<T>,
   ): InferType<T> | undefined;
   get<T extends ComponentDataSchema>(
-    component: ComponentHandle<T>,
-    target: EntityHandle,
+    component: Component<T>,
+    target: Entity,
   ): InferType<T> | undefined;
   get<T extends ComponentDataSchema>(
-    component: EntityHandle,
-    target: ComponentHandle<T>,
+    component: Entity,
+    target: Component<T>,
   ): InferType<T> | undefined;
   get<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
-    component: ComponentHandle<T1>,
-    target: ComponentHandle<T2>,
+    component: Component<T1>,
+    target: Component<T2>,
   ): InferType<T1> | undefined;
   get(
-    first:
-      | AnyComponentHandle
-      | RelationshipComponentHandle<ComponentDataSchema>,
-    second?: AnyComponentHandle,
+    first: AnyComponent | PairComponent<ComponentDataSchema>,
+    second?: AnyComponent,
   ) {
     if (second === undefined) {
       return this.backend.get(this.data, first.data);
     }
-    if (first.data instanceof Entity && second.data instanceof Entity) {
+    if (
+      first.data instanceof Backend.Entity &&
+      second.data instanceof Backend.Entity
+    ) {
       return this.backend.get(
         this.data,
         this.backend.pair(first.data, second.data),
@@ -309,36 +333,53 @@ class EntityHandleBase {
     throw new Error("Invalid arguments for getData");
   }
 
-  hasAnyRelationship(relationship: AnyComponentHandle) {
-    return this.backend.hasAnyRelationship(this.data, relationship.data);
+  components(): IteratorObject<Tag | PairTag>;
+  components(first: AnyComponent | Wildcard): IteratorObject<Tag>;
+  components(
+    first: AnyComponent | Wildcard,
+    second: Wildcard | AnyComponent,
+  ): IteratorObject<PairTag>;
+  components(
+    first?: AnyComponent | Wildcard,
+    second?: Wildcard | AnyComponent,
+  ): IteratorObject<Tag | PairTag> | IteratorObject<Tag> {
+    if (first === undefined) {
+      return this.backend
+        .getComponents(this.data)
+        .map(this.mapFromBackend.bind(this));
+    }
+
+    return this.backend
+      .getComponents(this.data, this.mapToBackend([first, second]))
+      .map(this.mapFromBackend.bind(this));
   }
 
-  getRelationshipTargets(relationship: AnyComponentHandle): Set<EntityHandle> {
-    return new Set(
-      this.backend
-        .getRelationshipTargets(this.data, relationship.data)
-        .entries()
-        .map(([target]) => new EntityHandle(target, this.backend)),
-    );
-  }
+  findComponent(
+    first?: AnyComponent | Wildcard,
+    second?: AnyComponent | Wildcard,
+  ): Tag | PairTag | undefined {
+    const fromBackend = (() => {
+      if (first === undefined) return this.backend.findComponent(this.data);
+      return this.backend.findComponent(
+        this.data,
+        this.mapToBackend([first, second]),
+      );
+    })();
+    if (fromBackend === undefined) {
+      return undefined;
+    }
 
-  getARelationshipTarget(
-    relationship: AnyComponentHandle,
-  ): EntityHandle | undefined {
-    const target = this.backend.getARelationshipTarget(
-      this.data,
-      relationship.data,
-    );
-
-    return target ? new EntityHandle(target, this.backend) : undefined;
+    return this.mapFromBackend(fromBackend);
   }
 }
 
-export class EntityHandle extends EntityHandleBase {
+export class Entity extends EntityHandleBase {
   __entityHandleBrand: undefined = undefined;
 }
 
-export class ComponentHandle<
+export type Tag = Entity;
+
+export class Component<
   // needed for type inference when using the handle, even if not used directly here
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   T extends ComponentDataSchema,
@@ -348,29 +389,32 @@ export class ComponentHandle<
   }
 }
 
-class PairHandleBase {
-  data: Pair;
-  #backend: Backend;
+class PairHandleBase extends BackendHandleBase {
+  data: Backend.Pair;
 
-  constructor(_data: Pair, backend: Backend) {
+  constructor(_data: Backend.Pair, backend: Backend.Backend) {
+    super(backend);
     this.data = _data;
-    this.#backend = backend;
   }
 
   relationship() {
-    return new EntityHandle(this.data.relationship, this.#backend);
+    return new Entity(this.data.relationship, this.backend);
   }
 
   target() {
-    return new EntityHandle(this.data.target, this.#backend);
+    return new Entity(this.data.target, this.backend);
+  }
+
+  isSameAs(other: AnyId) {
+    return this.data === other.data;
   }
 }
 
-export class RelationshipTagHandle extends PairHandleBase {
+export class PairTag extends PairHandleBase {
   _tagPairBrand: undefined = undefined;
 }
 
-export class RelationshipComponentHandle<
+export class PairComponent<
   // needed for type inference when using the handle, even if not used directly here
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   T extends ComponentDataSchema,
@@ -378,13 +422,37 @@ export class RelationshipComponentHandle<
   _componentPairBrand: undefined = undefined;
 }
 
-type AnyComponentHandle = EntityHandle | ComponentHandle<ComponentDataSchema>;
+type Wildcard = { data: Backend.Wildcard };
 
-type AnyRelationshipHandle =
-  | RelationshipTagHandle
-  | RelationshipComponentHandle<ComponentDataSchema>;
+// function isWildcard(value: { data: unknown }): value is Wildcard {
+//   return Backend.isWildcard(value.data);
+// }
 
-type AnyIdHandle = AnyComponentHandle | AnyRelationshipHandle;
+type AnyComponent = Tag | Component<ComponentDataSchema>;
+
+// function isComponent(value: { data: unknown }): value is AnyComponent {
+//   return value.data instanceof Backend.Entity;
+// }
+
+type AnyPair = PairTag | PairComponent<ComponentDataSchema>;
+
+function isPair(value: { data: unknown }): value is AnyPair {
+  return value.data instanceof Backend.Pair;
+}
+
+// // eslint-disable-next-line @typescript-eslint/no-unused-vars
+// type AnyNoData = Entity | PairTag;
+
+// // eslint-disable-next-line @typescript-eslint/no-unused-vars
+// type AnyWithData<T extends ComponentDataSchema> =
+//   | Component<T>
+//   | PairComponent<T>;
+
+type AnyId = AnyComponent | AnyPair;
+
+// function isId(value: { data: unknown }): value is AnyId {
+//   return isComponent(value) || isPair(value);
+// }
 
 type ComponentDataSchema = {
   parse(val: unknown): unknown;

@@ -9,3 +9,8 @@ export { StoragePairMixin } from "./IPair";
 export type { IStoragePair } from "./IPair";
 
 export { LinkType } from "./Links";
+
+export type { Query } from "./Query";
+
+export { isWildcard } from "./Wildcard";
+export type { Wildcard } from "./Wildcard";

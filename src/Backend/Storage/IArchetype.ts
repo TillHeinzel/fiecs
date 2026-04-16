@@ -45,7 +45,7 @@ export const StorageArchetypeMixin =
 
       detachConnections() {
         for (const component of this.components) {
-          component.backLinksComponent?.delete(this as unknown as Archetype);
+          component.removeBacklink(this as unknown as Archetype);
         }
 
         this.links.detachLinks();

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "esnext",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": false,
     "skipLibCheck": true,
@@ -22,6 +22,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.mjs",
+    "vitest.config.ts",
+    "vitest.setup.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "src/**/*.mts"
