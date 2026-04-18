@@ -3,16 +3,38 @@ import { Archetype, Entity, Id, Pair } from "./BasicObjects";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import * as Storage from "./Storage";
+import { QueryBuilder } from "./Storage/Query";
 
 export class Backend {
-  storage = new Storage.ECSStorage(Archetype, Entity, Pair);
+  storage = new Storage.ECSStorage<Archetype, Entity, Pair>(Archetype, Entity);
   nameMap = new NameMap();
   entities: Set<Entity> = new Set();
   components: Map<unknown, Entity> = new Map();
 
-  wildcard = this.storage.wildcard;
+  wildcard = new Storage.Wildcard<Archetype, Entity, Pair>();
 
   private operation = new AtomicOperationManager(this.storage);
+
+  queryBuilder = new QueryBuilder<Archetype, Entity, Pair>();
+
+  constructor() {
+    this.storage.addNewArchetypeCallbacks.add((newArchetype) => {
+      const components = newArchetype.components;
+      this.wildcard.addBacklinkIfMatches(newArchetype);
+      this.wildcard.doubleWildcard.addBacklinkIfMatches(newArchetype);
+      for (const id of components) {
+        id.addBacklink(newArchetype);
+      }
+    });
+
+    this.storage.deleteArchetypeCallbacks.add((archetype) => {
+      this.wildcard.removeBacklink(archetype);
+      this.wildcard.doubleWildcard.removeBacklink(archetype);
+      for (const id of archetype.components) {
+        id.removeBacklink(archetype);
+      }
+    });
+  }
 
   private createEntity() {
     const newEntity = this.storage.createEntity();
@@ -53,7 +75,18 @@ export class Backend {
   }
 
   pair(relationship: Entity, target: Entity) {
-    return this.storage.ensurePair(relationship, target);
+    const lookupExistingPair = () => {
+      return relationship.lookupPairWith(target);
+    };
+
+    const createNewPair = () => {
+      const newPair = new Pair({ relationship, target });
+
+      relationship.getRelationshipWildcard().addPairBacklink(newPair);
+
+      return newPair;
+    };
+    return lookupExistingPair() ?? createNewPair();
   }
 
   initializer(component: Entity) {
@@ -88,7 +121,7 @@ export class Backend {
   }
 
   isAlive(entity: Entity) {
-    return this.storage.isAlive(entity);
+    return entity.isAlive();
   }
 
   destruct(entity: Entity) {
@@ -102,20 +135,36 @@ export class Backend {
     entity.name = undefined;
     this.entities.delete(entity);
 
-    this.storage.moveToDestructedArchetype(entity);
-    this.storage.removeFromAll(
-      Iterator.from([
-        this.makeQuery(entity),
-        this.makeQuery([entity, this.storage.wildcard]),
-        this.makeQuery([this.storage.wildcard, entity]),
-      ]),
-    );
+    Storage.mergeResults<Archetype, Entity, Pair>([
+      this.makeQuery(entity).matchingArchetypes(),
+      this.makeQuery([entity, this.wildcard]).matchingArchetypes(),
+      this.makeQuery([this.wildcard, entity]).matchingArchetypes(),
+    ])
+      .entries()
+      .forEach(([archetype, components]) => {
+        this.storage.moveAllEntities(archetype, components);
+        this.storage.cleanup(archetype);
+      });
+
+    entity.destruct();
   }
 
   removeFromAll(
-    id: Wildcard | Entity | Pair | [Entity | Wildcard, Entity | Wildcard],
+    term:
+      | Wildcard
+      | Entity
+      | Pair
+      | [Entity, Entity]
+      | [Entity, Wildcard]
+      | [Wildcard, Entity]
+      | [Wildcard, Wildcard],
   ) {
-    this.storage.removeFromAll(Iterator.from([this.makeAnyQuery(id)]));
+    this.makeAnyQuery(term)
+      .matchingArchetypes()
+      .forEach(([archetype, components]) => {
+        this.storage.moveAllEntities(archetype, components);
+        this.storage.cleanup(archetype);
+      });
   }
 
   destructAllWith(
@@ -135,18 +184,15 @@ export class Backend {
   }
 
   clear(entity: Entity) {
-    this.storage.moveToEmptyArchetype(entity);
+    this.storage.clear(entity);
   }
 
   has(
     entity: Entity,
-    component:
-      | Entity
-      | Pair
-      | Wildcard
-      | [Entity | Wildcard, Entity | Wildcard],
+    term: Entity | Pair | Wildcard | [Entity | Wildcard, Entity | Wildcard],
   ) {
-    return this.storage.has(entity, component);
+    if (!entity.isAlive()) return false;
+    return this.makeAnyQuery(term).matches(entity.archetype);
   }
 
   remove(
@@ -157,8 +203,10 @@ export class Backend {
       | Wildcard
       | [Entity | Wildcard, Entity | Wildcard],
   ) {
+    if (!entity.isAlive()) return;
+
     this.makeAnyQuery(removeTerm)
-      .match(entity.archetype!)
+      .match(entity.archetype)
       .forEach((id) => {
         if (!this.has(entity, id)) return;
 
@@ -252,12 +300,12 @@ export class Backend {
     if (!this.has(entity, id)) {
       this.add(entity, id, { data: newVal });
     } else {
-      this.storage.set(entity, id, id.tryInitialize({ data: newVal }));
+      entity.set(id, id.tryInitialize({ data: newVal }));
     }
   }
 
   get(entity: Entity, id: Id) {
-    return this.storage.get(entity, id);
+    return entity.get(id);
   }
 
   checkValid(id: Id) {
@@ -305,11 +353,9 @@ export class Backend {
     entity.addHook(phase, operation, callback);
   }
 
-  makeAnyQuery = this.storage.queryBuilder.buildAny.bind(
-    this.storage.queryBuilder,
-  );
+  makeAnyQuery = this.queryBuilder.buildAny.bind(this.queryBuilder);
 
-  makeQuery = this.storage.queryBuilder.build.bind(this.storage.queryBuilder);
+  makeQuery = this.queryBuilder.build.bind(this.queryBuilder);
 }
 
 export type HookCallback = HookCallbackGeneric<Entity, Pair>;

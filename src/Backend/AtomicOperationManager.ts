@@ -92,7 +92,7 @@ class OperationPayload {
       this.idsToRemove,
     );
     this.dataToSet.forEach(([id, val]) => {
-      storage.set(this.entity, id, val);
+      this.entity.set(id, val);
     });
   }
 }

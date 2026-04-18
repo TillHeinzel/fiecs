@@ -1,4 +1,4 @@
-import { MergeCtor, MixinBase } from "#/mixins/mixins";
+import { MergeCtor, MixinBase } from "#/Utility/mixins";
 
 import { Initializer } from "./Initializer";
 

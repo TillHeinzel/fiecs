@@ -18,7 +18,7 @@ export default defineConfig({
   },
   test: {
     exclude: ["config/**", "public/**"],
-
+    execArgv: ["--expose-gc"],
     passWithNoTests: true,
     projects: [
       {

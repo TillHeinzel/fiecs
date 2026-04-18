@@ -7,10 +7,6 @@ import {
   Phase,
   Query,
 } from "./Backend";
-import {
-  down,
-  traverseRelationship,
-} from "./Backend/Storage/RelationshipTraversal";
 
 // TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
 
@@ -142,15 +138,30 @@ export function builtinTraits(backend: Backend) {
         );
       }
 
-      traverseRelationship(relationship, target, down).visit(
-        (currentTarget) => {
-          if (currentTarget === entity) {
-            throw new Error(
-              `Relationship "${backend.getDisplayName(relationship)}" is acyclic and cannot be added to an entity that would create a cycle`,
-            );
-          }
-        },
-      );
+      const callback = (currentTarget: Entity) => {
+        if (currentTarget === entity) {
+          throw new Error(
+            `Relationship "${backend.getDisplayName(relationship)}" is acyclic and cannot be added to an entity that would create a cycle`,
+          );
+        }
+      };
+
+      const getChildren = (currentTarget: Entity) =>
+        backend
+          .getComponents(currentTarget, [
+            relationship,
+            backend.wildcard,
+          ] as const)
+          .map((pair) => pair.target);
+
+      recurse(getChildren(target));
+
+      function recurse(targets: IteratorObject<Entity>) {
+        targets.forEach((target) => {
+          callback(target);
+          recurse(getChildren(target));
+        });
+      }
     },
   );
 

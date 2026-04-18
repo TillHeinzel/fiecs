@@ -1,4 +1,4 @@
-import { MergeCtor, MixinBase } from "#/mixins/mixins";
+import { MergeCtor, MixinBase } from "#/Utility/mixins";
 
 import { HookCallback, Hooks, Operation, Phase } from "./Hooks";
 

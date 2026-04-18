@@ -1,6 +1,7 @@
-import { MergeCtor, MixinBase } from "#/mixins/mixins";
+import { MergeCtor, MixinBase } from "#/Utility/mixins";
 
 import { IStorageEntity } from "./IEntity";
+import { ILogger } from "./ILogger";
 import { IStoragePair } from "./IPair";
 import { Links } from "./Links";
 
@@ -14,7 +15,7 @@ export interface IStorageArchetype<
 
   readonly links: Links<Archetype, Entity | Pair>;
 
-  detachConnections(): void;
+  detachConnections(logger: ILogger): void;
 }
 
 export const StorageArchetypeMixin =
@@ -43,12 +44,10 @@ export const StorageArchetypeMixin =
         this.components = props.components;
       }
 
-      detachConnections() {
-        for (const component of this.components) {
-          component.removeBacklink(this as unknown as Archetype);
-        }
-
-        this.links.detachLinks();
+      detachConnections(logger: ILogger) {
+        this.links.detachLinks(logger);
+        // @ts-expect-error //GC
+        this.links = null as unknown as Links<Archetype, Entity | Pair>;
       }
     };
 

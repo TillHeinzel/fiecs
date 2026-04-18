@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import * as Fiecs from "./index";
+import { awaitGC, ObjectGCTracker } from "./Utility/GCtesting";
 
 describe("entities, names, aliveness", () => {
   test("default constructor", () => {
@@ -581,15 +582,13 @@ describe("entities, names, aliveness", () => {
       clint.add(likes, apples);
       clint.add(likes);
 
-      const formerArchetypeCount = ecs.getArchetypeCount();
-      const formerEdgeCount = ecs.getArchetypeGraphEdgeCount();
-
+      ecs.startStatistics();
       ecs.destructAllWith(likes);
 
       // remove [likes], [likes, (likes, apples)]
-      expect(ecs.getArchetypeCount()).toBe(formerArchetypeCount - 2);
+      expect(ecs.getStatistics().archetypesDeleted).toBe(2);
       // removes edges from [] to [likes], from [(likes, apples)] to [likes, (likes, apples)]
-      expect(ecs.getArchetypeGraphEdgeCount()).toBe(formerEdgeCount - 4);
+      expect(ecs.getStatistics().linksDeleted).toBe(4);
     });
 
     test("destructAllWith(relationship, wildcard) deletes all entities with pairs using the relationship", () => {
@@ -1010,12 +1009,12 @@ describe("tags", () => {
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(false);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing tag the entity does not have does nothing", () => {
@@ -1027,11 +1026,11 @@ describe("tags", () => {
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     e.remove(aiTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("clear removes all tags from the component", () => {
@@ -1072,11 +1071,11 @@ describe("tags", () => {
     const playerTag = ecs.tag();
     const e1 = ecs.entity();
     const e2 = ecs.entity();
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
+    expect(ecs.getStatistics().expensiveLookups).toBe(0);
     e1.add(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
     e2.add(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a tag does not require additional expensive lookups, because links are created when the tag is added", () => {
@@ -1087,10 +1086,10 @@ describe("tags", () => {
     const e1 = ecs.entity();
 
     e1.add(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     e1.remove(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("when adding two tags and then removing the first, each operation adds a link", () => {
@@ -1102,13 +1101,13 @@ describe("tags", () => {
     const e1 = ecs.entity();
 
     e1.add(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     e1.add(aiTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(2);
+    expect(ecs.getStatistics().expensiveLookups).toBe(2);
 
     e1.remove(playerTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(3);
+    expect(ecs.getStatistics().expensiveLookups).toBe(3);
   });
 
   test("entities can be used as tags on other entities, as tags are just entities", () => {
@@ -1140,7 +1139,7 @@ describe("statistics", () => {
   test("if statistics is not started, can't fetch statistics", () => {
     const ecs = new Fiecs.World();
 
-    expect(ecs.getStatistics()).not.toBeDefined();
+    expect(() => ecs.getStatistics()).toThrow("Statistics not started");
   });
 
   test("if statistics is started then stopped, can't fetch statistics", () => {
@@ -1149,7 +1148,7 @@ describe("statistics", () => {
     ecs.startStatistics();
     ecs.stopStatistics();
 
-    expect(ecs.getStatistics()).not.toBeDefined();
+    expect(() => ecs.getStatistics()).toThrow("Statistics not started");
   });
 
   test("if statistics is started, expensive archetype lookups are counted", () => {
@@ -1159,43 +1158,46 @@ describe("statistics", () => {
 
     const e = ecs.entity();
     e.add(cheeseTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
     const breadTag = ecs.tag();
     e.add(breadTag);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(2);
+    expect(ecs.getStatistics().expensiveLookups).toBe(2);
   });
 
-  test("can lookup archetype count", () => {
+  test("can lookup archetypes added", () => {
     const ecs = new Fiecs.World();
-    const initialArchetypeCount = ecs.getArchetypeCount();
     const cheese = ecs.tag();
 
+    ecs.startStatistics();
     const e = ecs.entity();
     e.add(cheese);
-    expect(ecs.getArchetypeCount()).toEqual(initialArchetypeCount + 1);
+    expect(ecs.getStatistics().archetypesAdded).toEqual(1);
 
     e.add(cheese, e);
-    expect(ecs.getArchetypeCount()).toEqual(initialArchetypeCount + 2);
+    expect(ecs.getStatistics().archetypesAdded).toEqual(2);
   });
 
   test("can lookup number of edges between archetypes", () => {
     const ecs = new Fiecs.World();
+    ecs.startStatistics();
     const cheese = ecs.tag();
     const e = ecs.entity();
 
-    const initialEdgeCount = ecs.getArchetypeGraphEdgeCount();
-
+    ecs.startStatistics();
     e.add(cheese);
-    expect(ecs.getArchetypeGraphEdgeCount()).toEqual(initialEdgeCount + 2);
+    expect(ecs.getStatistics().linksAdded).toEqual(2);
 
+    ecs.startStatistics();
     e.add(cheese, e);
-    expect(ecs.getArchetypeGraphEdgeCount()).toEqual(initialEdgeCount + 4);
+    expect(ecs.getStatistics().linksAdded).toEqual(2);
 
+    ecs.startStatistics();
     e.remove(cheese);
-    expect(ecs.getArchetypeGraphEdgeCount()).toEqual(initialEdgeCount + 6);
+    expect(ecs.getStatistics().linksAdded).toEqual(2);
 
+    ecs.startStatistics();
     e.remove(cheese, e);
-    expect(ecs.getArchetypeGraphEdgeCount()).toEqual(initialEdgeCount + 8);
+    expect(ecs.getStatistics().linksAdded).toEqual(2);
   });
 });
 
@@ -1356,7 +1358,7 @@ describe("components", () => {
     e.set(health, 50);
     e.add(health);
     expect(e.get(health)).toBe(50);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("adding a component requires it being created first", () => {
@@ -1395,11 +1397,11 @@ describe("components", () => {
 
     const e1 = ecs.entity();
     const e2 = ecs.entity();
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
+    expect(ecs.getStatistics().expensiveLookups).toBe(0);
     e1.set(health, 100);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
     e2.set(health, 50);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a component from an entity does not require and expensive lookup, because links are established on add", () => {
@@ -1408,9 +1410,9 @@ describe("components", () => {
     const health = ecs.component(z.number());
     const e1 = ecs.entity();
     e1.set(health, 100);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
     e1.remove(health);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("when adding two components and then removing the first, each operation adds a link", () => {
@@ -1421,13 +1423,13 @@ describe("components", () => {
     const e1 = ecs.entity();
 
     e1.set(health, 100);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     e1.set(damage, 50);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(2);
+    expect(ecs.getStatistics().expensiveLookups).toBe(2);
 
     e1.remove(health);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(3);
+    expect(ecs.getStatistics().expensiveLookups).toBe(3);
   });
 
   test("A component can be set to undefined", () => {
@@ -1724,12 +1726,12 @@ describe("relationships", () => {
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing non-existant relationship tag does nothing quietly", () => {
@@ -1745,13 +1747,13 @@ describe("relationships", () => {
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     bob.remove(eats, pears);
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("clear removes all relationship tags from the entity", () => {
@@ -1839,11 +1841,11 @@ describe("relationships", () => {
     const e1 = ecs.entity();
     const e2 = ecs.entity();
     const e3 = ecs.entity();
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(0);
+    expect(ecs.getStatistics().expensiveLookups).toBe(0);
     e1.add(relatesTo, e3);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
     e2.add(relatesTo, e3);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a relationship tag from an entity requires no additional expensive lookups because links are established on add", () => {
@@ -1855,10 +1857,10 @@ describe("relationships", () => {
     const alice = ecs.entity();
 
     bob.add(likes, alice);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
 
     bob.remove(likes, alice);
-    expect(ecs.getStatistics()!.expensiveLookups).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("Relationships can be components", () => {
@@ -2127,48 +2129,138 @@ describe("Cleanup on destruct", () => {
     const cheese = ecs.tag("cheese");
     const likes = ecs.tag("likes");
 
-    const archetypes = ecs.getArchetypeCount();
-    const edges = ecs.getArchetypeGraphEdgeCount();
+    const alice = ecs.entity("Alice");
+    const bob = ecs.entity("Bob");
+    const clint = ecs.entity("Clint");
+
+    ecs.startStatistics();
+    alice.add(likes);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    bob.add(likes);
+    expect(ecs.getStatistics().archetypesAdded).toBe(0);
+    expect(ecs.getStatistics().linksAdded).toBe(0);
+
+    ecs.startStatistics();
+    bob.add(cheese);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    bob.add(likes, alice);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    clint.add(likes, alice);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    clint.add(likes);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    clint.add(cheese);
+    expect(ecs.getStatistics().archetypesAdded).toBe(0);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+
+    ecs.startStatistics();
+    likes.destruct();
+
+    expect(ecs.getStatistics().archetypesDeleted).toBe(5);
+    expect(ecs.getStatistics().linksDeleted).toBe(12);
+  });
+
+  // TODO[epic=memory] - need to check for memory leaks at some point
+  test.skip("Destructed archetypes and edges are garbage collected", async () => {
+    const ecs = new Fiecs.World();
+
+    const likes = ecs.tag("likes");
+
+    const alice = ecs.entity("Alice");
+
+    ecs.startStatistics();
+    alice.add(likes);
+
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(2);
+    likes.destruct();
+
+    expect(ecs.getStatistics().archetypesDeleted).toBe(1);
+    expect(ecs.getStatistics().linksDeleted).toBe(2);
+
+    expect(ecs.getStatistics().liveArchetypes).toBe(1);
+    expect(ecs.getStatistics().liveLinks).toBe(2);
+
+    // expect(global.gc).toBeDefined();
+
+    const testTracker = new ObjectGCTracker();
+
+    (() => {
+      let x = {};
+      testTracker.add(x);
+      x = null as unknown as object;
+    })();
+
+    expect(testTracker.count() === 1);
+    await awaitGC(10);
+    expect(testTracker.count() === 0);
+
+    expect(ecs.getStatistics().liveArchetypes).toBe(0);
+    expect(ecs.getStatistics().liveLinks).toBe(0);
+  });
+
+  test.skip("Destructed archetypes and edges are garbage collected", async () => {
+    const ecs = new Fiecs.World();
+
+    const cheese = ecs.tag("cheese");
+    const likes = ecs.tag("likes");
 
     const alice = ecs.entity("Alice");
     const bob = ecs.entity("Bob");
     const clint = ecs.entity("Clint");
 
-    expect(ecs.getArchetypeCount()).toBe(archetypes);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges);
-
+    ecs.startStatistics();
     alice.add(likes);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 1);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 2);
-
     bob.add(likes);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 1);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 2);
 
     bob.add(cheese);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 2);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 4);
-
     bob.add(likes, alice);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 3);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 6);
 
     clint.add(likes, alice);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 4);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 8);
-
     clint.add(likes);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 5);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 10);
-
     clint.add(cheese);
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 5);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges + 12);
 
+    expect(ecs.getStatistics().archetypesAdded).toBe(5);
+    expect(ecs.getStatistics().linksAdded).toBe(12);
     likes.destruct();
 
-    expect(ecs.getArchetypeCount()).toBe(archetypes + 1); // everything built in and [cheese]
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(edges); // all links had likes
+    expect(ecs.getStatistics().archetypesDeleted).toBe(5);
+    expect(ecs.getStatistics().linksDeleted).toBe(12);
+
+    expect(ecs.getStatistics().liveArchetypes).toBe(6);
+    expect(ecs.getStatistics().liveLinks).toBe(12);
+
+    // expect(global.gc).toBeDefined();
+
+    const testTracker = new ObjectGCTracker();
+
+    (() => {
+      let x = {};
+      testTracker.add(x);
+      x = null as unknown as object;
+    })();
+
+    expect(testTracker.count() === 1);
+    await awaitGC(10);
+    expect(testTracker.count() === 0);
+
+    expect(ecs.getStatistics().liveLinks).toBe(0);
+    expect(ecs.getStatistics().liveArchetypes).toBe(0);
   });
 
   describe("Destructing an entity removes all relationships on other entities that target the destructed entity", () => {
@@ -2227,15 +2319,13 @@ describe("Cleanup on destruct", () => {
     expect(bob.has(likes, alice)).toBe(true);
     expect(clint.has(likes, alice)).toBe(true);
 
-    const previousArchetypeCount = ecs.getArchetypeCount();
-    const previousEdgeCount = ecs.getArchetypeGraphEdgeCount();
-
+    ecs.startStatistics();
     alice.destruct();
 
     expect(bob.has(likes, alice)).toBe(false);
 
-    expect(ecs.getArchetypeCount()).toBe(previousArchetypeCount - 2);
-    expect(ecs.getArchetypeGraphEdgeCount()).toBe(previousEdgeCount - 4);
+    expect(ecs.getStatistics().archetypesDeleted).toBe(2);
+    expect(ecs.getStatistics().linksDeleted).toBe(4);
   });
 
   test("Trying to delete a component throws an error", () => {
@@ -2369,10 +2459,10 @@ describe("With trait", () => {
     power.add(ecs.builtin.With, responsibility);
     responsibility.add(ecs.builtin.With, stress);
 
-    const archetypeCountBefore = ecs.getArchetypeCount();
+    ecs.startStatistics();
     peterParker.add(power);
 
-    expect(ecs.getArchetypeCount()).toBe(archetypeCountBefore + 1);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
   });
 
   test("When with adds components with data, these are default initialized ", () => {
@@ -3095,7 +3185,6 @@ describe("Exclusive Trait", () => {
 
   test("Replacing an exclusive relationship happens with a single archetype move, and one archetype link being created, even under complex circumstances", () => {
     const ecs = new Fiecs.World();
-    ecs.startStatistics();
     const isOnPlanet = ecs.tag("is on planet");
     isOnPlanet.add(ecs.builtin.Exclusive);
 
@@ -3115,19 +3204,12 @@ describe("Exclusive Trait", () => {
     alice.add(isOnPlanet, earth);
     alice.add(someOtherTag); // this matters, because this way the archetype for just removing (isOnPlanet, earth) doesn't exist
 
-    const archetypeCountBefore = ecs.getArchetypeCount();
-    const archetypeLinkCountBefore = ecs.getArchetypeGraphEdgeCount();
-    const expensiveLookupsBefore = ecs.getStatistics()!.expensiveLookups;
-
+    ecs.startStatistics();
     alice.add(isOnPlanet, mars);
 
-    const archetypeCountAfter = ecs.getArchetypeCount();
-    const archetypeLinkCountAfter = ecs.getArchetypeGraphEdgeCount();
-    const expensiveLookupsAfter = ecs.getStatistics()!.expensiveLookups;
-
-    expect(archetypeCountAfter).toBe(archetypeCountBefore + 1);
-    expect(archetypeLinkCountAfter).toBe(archetypeLinkCountBefore + 1);
-    expect(expensiveLookupsAfter).toBe(expensiveLookupsBefore + 1);
+    expect(ecs.getStatistics().archetypesAdded).toBe(1);
+    expect(ecs.getStatistics().linksAdded).toBe(1);
+    expect(ecs.getStatistics().expensiveLookups).toBe(1);
   });
 
   // test("If an exclusive relationship which also has With's is replaced, the data of the Withs are also replaced", () => {});
@@ -3199,6 +3281,7 @@ describe("Reflexive Trait", () => {
 describe("Transitive Trait", () => {
   //TODO[epic=queries] - Transitive Trait
 });
+
 describe("Traversable Trait", () => {
   //TODO[epic=queries] - Traversable trait
 });

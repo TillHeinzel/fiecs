@@ -1,5 +1,6 @@
 import * as Backend from "./Backend";
 import { builtinTraits } from "./builtinTraits";
+import { ObjectGCTracker } from "./Utility/GCtesting";
 
 class BackendHandleBase {
   protected backend: Backend.Backend;
@@ -93,24 +94,31 @@ export class World extends BackendHandleBase {
 
   wildcard: Wildcard = { data: this.backend.wildcard };
 
+  private logger?: Logger;
+
   startStatistics() {
-    this.backend.storage.startStatistics();
+    this.logger = new Logger();
+    this.backend.storage.startStatistics(this.logger);
   }
 
   stopStatistics() {
     this.backend.storage.stopStatistics();
+    this.logger = undefined;
   }
 
   getStatistics() {
-    return this.backend.storage.getStatistics();
-  }
-
-  getArchetypeCount() {
-    return this.backend.storage.getArchetypeCount();
-  }
-
-  getArchetypeGraphEdgeCount() {
-    return this.backend.storage.getLinkCount();
+    if (!this.logger) {
+      throw new Error("Statistics not started");
+    }
+    return {
+      expensiveLookups: this.logger.expensiveLookups,
+      archetypesAdded: this.logger.archetypesAdded,
+      archetypesDeleted: this.logger.archetypesDeleted,
+      linksAdded: this.logger.linksAdded,
+      linksDeleted: this.logger.linksDeleted,
+      liveArchetypes: this.logger.liveArchetypes(),
+      liveLinks: this.logger.liveLinks(),
+    };
   }
 
   entity(name?: string) {
@@ -459,3 +467,49 @@ type ComponentDataSchema = {
 };
 
 type InferType<T extends ComponentDataSchema> = ReturnType<T["parse"]>;
+
+class Logger implements Backend.ILogger {
+  private archetypeGCTracker = new ObjectGCTracker();
+
+  archetypesAdded = 0;
+  archetypesDeleted = 0;
+
+  liveArchetypes() {
+    this.archetypeGCTracker.clearDead();
+    return this.archetypeGCTracker.count();
+  }
+
+  addArchetype(archetype: object): void {
+    this.archetypeGCTracker.add(archetype);
+    this.archetypesAdded++;
+
+    archetype = null as unknown as object; // allow GC to collect the archetype if nothing else is referencing it
+  }
+  deleteArchetype(): void {
+    this.archetypesDeleted++;
+  }
+
+  liveLinks() {
+    this.linkGCTracker.clearDead();
+    return this.linkGCTracker.count();
+  }
+
+  private linkGCTracker = new ObjectGCTracker();
+
+  linksAdded = 0;
+  linksDeleted = 0;
+
+  addLink(link: object): void {
+    this.linkGCTracker.add(link);
+    this.linksAdded++;
+    link = null as unknown as object; // allow GC to collect the link if nothing else is referencing it
+  }
+  deleteLink(): void {
+    this.linksDeleted++;
+  }
+
+  expensiveLookups = 0;
+  doExpensiveLookup(): void {
+    this.expensiveLookups++;
+  }
+}

@@ -1,4 +1,4 @@
-import { MergeCtor, MixinBase } from "#/mixins/mixins";
+import { MergeCtor, MixinBase } from "#/Utility/mixins";
 
 import { IStorageArchetype } from "./IArchetype";
 import { IStoragePair } from "./IPair";
@@ -9,16 +9,19 @@ export interface IStorageEntity<
   Entity extends IStorageEntity<Archetype, Entity, Pair>,
   Pair extends IStoragePair<Archetype, Entity, Pair>,
 > {
-  archetype?: Archetype;
-  componentData: Map<Entity | Pair, unknown>;
+  readonly archetype?: Archetype;
 
-  // [this, *]
-  relationshipWildcard?: RelationshipWildcard<Archetype, Entity, Pair>;
-  // [*, this]
-  wildcardTarget?: WildcardTarget<Archetype, Entity, Pair>;
+  moveToArchetype(
+    newArchetype: Archetype,
+    removedComponents: ReadonlySet<Entity | Pair>,
+  ): void;
+
+  destruct(): void;
+
+  get(id: Entity | Pair): unknown;
+  set(id: Entity | Pair, value: unknown): void;
 
   removeBacklink(archetype: Archetype): void;
-  getBacklinks(): IteratorObject<Archetype>;
   addBacklink(archetype: Archetype): void;
 
   matches(archetype: Archetype): boolean;
@@ -28,20 +31,16 @@ export interface IStorageEntity<
 
   getRelationshipWildcard(): RelationshipWildcard<Archetype, Entity, Pair>;
   getWildcardTarget(): WildcardTarget<Archetype, Entity, Pair>;
-  lookupPairWith(target: Entity): Pair | undefined;
 
   isPair(): this is Pair;
 
   isEntity(): this is Entity;
 
-  isAlive(): this is IStorageEntity<Archetype, Entity, Pair> & {
+  isAlive(): this is Entity & {
     archetype: Archetype;
   };
 
-  getARelationshipPair(relationship: Entity): Pair | undefined;
-  getRelationshipPairs(relationship: Entity): Set<Pair>;
-  hasAnyRelationship(relationship: Entity): boolean;
-
+  lookupPairWith(target: Entity): Pair | undefined;
   isInUseAsComponent(): boolean;
 }
 
@@ -70,6 +69,31 @@ export const StorageEntityMixin =
         super(props);
       }
 
+      moveToArchetype(
+        newArchetype: Archetype,
+        removedComponents: ReadonlySet<Entity | Pair> = new Set(),
+      ) {
+        this.archetype?.entities.delete(this as unknown as Entity);
+        newArchetype.entities.add(this as unknown as Entity);
+        this.archetype = newArchetype;
+        removedComponents.forEach((component) =>
+          this.componentData.delete(component),
+        );
+      }
+
+      destruct(): void {
+        this.archetype?.entities.delete(this as unknown as Entity);
+        this.archetype = undefined;
+        this.componentData.clear();
+      }
+
+      get(id: Entity | Pair): unknown {
+        return this.componentData.get(id);
+      }
+      set(id: Entity | Pair, value: unknown): void {
+        this.componentData.set(id, value);
+      }
+
       isPair(): this is Pair {
         return false;
       }
@@ -77,7 +101,7 @@ export const StorageEntityMixin =
         return true;
       }
 
-      isAlive(): this is IStorageEntity<Archetype, Entity, Pair> & {
+      isAlive(): this is Entity & {
         archetype: Archetype;
       } {
         return this.archetype !== undefined;
@@ -107,9 +131,6 @@ export const StorageEntityMixin =
       removeBacklink(archetype: Archetype): void {
         this.backLinksComponent?.delete(archetype);
       }
-      getBacklinks(): IteratorObject<Archetype> {
-        return this.backLinksComponent?.values() ?? [][Symbol.iterator]();
-      }
       addBacklink(archetype: Archetype): void {
         if (!this.backLinksComponent) {
           this.backLinksComponent = new Set();
@@ -136,36 +157,12 @@ export const StorageEntityMixin =
         return this.relationshipWildcard?.lookupTarget(target);
       }
 
-      getARelationshipPair(relationship: Entity): Pair | undefined {
-        if (!this.isAlive()) return undefined;
-        return this.archetype.components
-          .keys()
-          .filter((component) => component.isPair())
-          .find((pair) => pair.relationship === relationship);
-      }
-      getRelationshipPairs(relationship: Entity): Set<Pair> {
-        if (!this.isAlive()) return new Set();
-        return new Set(
-          this.archetype.components
-            .keys()
-            .filter((component) => component.isPair())
-            .filter((pair) => pair.relationship === relationship),
-        );
-      }
-      hasAnyRelationship(relationship: Entity): boolean {
-        if (!this.isAlive()) return false;
-        return this.archetype.components
-          .keys()
-          .filter((component) => component.isPair())
-          .some((pair) => pair.relationship === relationship);
-      }
-
       isInUseAsComponent(): boolean {
         return (
           (this.backLinksComponent !== undefined &&
             this.backLinksComponent.size > 0) ||
           (this.relationshipWildcard !== undefined &&
-            this.relationshipWildcard.hasBacklinks())
+            this.relationshipWildcard.hasPairs())
         );
       }
     };

@@ -1,3 +1,5 @@
+import { ILogger } from "./ILogger";
+
 interface IArchetype<Archetype extends IArchetype<Archetype, Id>, Id> {
   links: Links<Archetype, Id>;
 }
@@ -44,9 +46,10 @@ export class Links<Archetype extends IArchetype<Archetype, Id>, Id> {
     if (type === LinkType.Remove) {
       this.forRemove.set(id, link);
     }
+    return link;
   }
 
-  remove(type: LinkType, id: Id) {
+  private remove(type: LinkType, id: Id) {
     if (type === LinkType.Add) {
       this.forAdd.delete(id);
     }
@@ -55,11 +58,23 @@ export class Links<Archetype extends IArchetype<Archetype, Id>, Id> {
     }
   }
 
-  detachLinks() {
+  detachLinks(logger: ILogger) {
     for (const link of this.targetingThis) {
       link.source.links.remove(link.type, link.component);
+      logger.deleteLink(link);
+    }
+    for (const link of this.forAdd.values()) {
+      link.target.links.targetingThis.delete(link);
+      logger.deleteLink(link);
+    }
+    for (const link of this.forRemove.values()) {
+      link.target.links.targetingThis.delete(link);
+      logger.deleteLink(link);
     }
     this.targetingThis.clear();
+    this.forAdd.clear();
+    this.forRemove.clear();
+    this.archetype = null as unknown as Archetype;
   }
 }
 
@@ -71,7 +86,7 @@ export function reverseLinkType(linkType: LinkType): LinkType {
       return LinkType.Add;
   }
 }
-type NewLink<Id, Archetype extends IArchetype<Archetype, Id>> = {
+export type NewLink<Id, Archetype extends IArchetype<Archetype, Id>> = {
   component: Id;
   type: LinkType;
   target: Archetype;

@@ -1,4 +1,4 @@
-import { MergeCtor, MixinBase } from "#/mixins/mixins";
+import { MergeCtor, MixinBase } from "#/Utility/mixins";
 
 import { IStorageArchetype } from "./IArchetype";
 import { IStorageEntity } from "./IEntity";
@@ -71,6 +71,8 @@ export const StoragePairMixin =
 
       removeBacklink(archetype: Archetype): void {
         this.backLinksComponent?.delete(archetype);
+        this.relationship.getRelationshipWildcard().removeBacklink(archetype);
+        this.target.getWildcardTarget().removeBacklink(archetype);
       }
       getBacklinks(): IteratorObject<Archetype> {
         return this.backLinksComponent?.values() ?? [][Symbol.iterator]();
@@ -82,10 +84,8 @@ export const StoragePairMixin =
         this.backLinksComponent.add(archetype);
         this.relationship
           .getRelationshipWildcard()
-          .addBacklink(archetype, this as unknown as Pair);
-        this.target
-          .getWildcardTarget()
-          .addBacklink(archetype, this as unknown as Pair);
+          .addBacklinkIfMatches(archetype);
+        this.target.getWildcardTarget().addBacklinkIfMatches(archetype);
       }
 
       isPair(): this is Pair {
