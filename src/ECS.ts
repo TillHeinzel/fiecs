@@ -98,11 +98,11 @@ export class World extends BackendHandleBase {
 
   startStatistics() {
     this.logger = new Logger();
-    this.backend.storage.startStatistics(this.logger);
+    this.backend.startStatistics(this.logger);
   }
 
   stopStatistics() {
-    this.backend.storage.stopStatistics();
+    this.backend.stopStatistics();
     this.logger = undefined;
   }
 

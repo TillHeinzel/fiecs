@@ -1,11 +1,11 @@
-import { MergeCtor, MixinBase } from "#/Utility/mixins";
+import { MixinBase } from "#/Utility/mixins";
 
 import { Initializer } from "./Initializer";
 
-export interface IDataInitializeEntity<
+export interface IEntity<
   Archetype,
-  Entity extends IDataInitializeEntity<Archetype, Entity, Pair>,
-  Pair extends IDataInitializePair<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   _relationshipHasNoData?: boolean;
   _initializer?: Initializer;
@@ -21,17 +21,16 @@ export interface IDataInitializeEntity<
   setRelationshipHasNoData(): void;
 }
 
-export const DataInitializeEntityMixin =
+export const EntityMixin =
   <
     Archetype,
-    Entity extends IDataInitializeEntity<Archetype, Entity, Pair>,
-    Pair extends IDataInitializePair<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
   <TBase extends MixinBase>(Base: TBase) => {
     const Derived = class
-      extends // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (Base as any)
-      implements IDataInitializeEntity<Archetype, Entity, Pair>
+      extends Base
+      implements IEntity<Archetype, Entity, Pair>
     {
       _initializer?: Initializer | undefined;
 
@@ -85,13 +84,13 @@ export const DataInitializeEntityMixin =
       }
     };
 
-    return Derived as unknown as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };
 
-export interface IDataInitializePair<
+export interface IPair<
   Archetype,
-  Entity extends IDataInitializeEntity<Archetype, Entity, Pair>,
-  Pair extends IDataInitializePair<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   tryInitialize(init: { data: unknown } | undefined): unknown;
 
@@ -100,20 +99,43 @@ export interface IDataInitializePair<
   hasData(): boolean;
 }
 
-export const DataInitializePairMixin =
+export const PairMixin =
   <
     Archetype,
-    Entity extends IDataInitializeEntity<Archetype, Entity, Pair>,
-    Pair extends IDataInitializePair<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
   <TBase extends MixinBase<{ relationship: Entity; target: Entity }>>(
     Base: TBase,
   ) => {
     const Derived = class
       extends Base
-      implements IDataInitializePair<Archetype, Entity, Pair>
+      implements IPair<Archetype, Entity, Pair>
     {
-      _initializer?: Initializer;
+      _initializer?: Initializer = (() => {
+        if (
+          this.relationship._initializer !== undefined &&
+          this.target._initializer === undefined
+        ) {
+          return this.relationship._initializer;
+        }
+        if (
+          this.relationship._initializer === undefined &&
+          this.target._initializer !== undefined &&
+          !this.relationship._relationshipHasNoData
+        ) {
+          return this.target._initializer;
+        }
+        if (
+          this.relationship._initializer !== undefined &&
+          this.target._initializer !== undefined &&
+          !this.relationship._relationshipHasNoData
+        ) {
+          return this.relationship._initializer;
+        }
+        // type.initializer === undefined && target.initializer === undefined
+        return undefined;
+      })();
 
       tryInitialize(init: { data: unknown } | undefined): unknown {
         return this._initializer?.tryInitialize(init);
@@ -126,37 +148,7 @@ export const DataInitializePairMixin =
       hasData() {
         return this._initializer !== undefined;
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      constructor(...props: any[]) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        super(...props);
-        this._initializer = (() => {
-          if (
-            this.relationship._initializer !== undefined &&
-            this.target._initializer === undefined
-          ) {
-            return this.relationship._initializer;
-          }
-          if (
-            this.relationship._initializer === undefined &&
-            this.target._initializer !== undefined &&
-            !this.relationship._relationshipHasNoData
-          ) {
-            return this.target._initializer;
-          }
-          if (
-            this.relationship._initializer !== undefined &&
-            this.target._initializer !== undefined &&
-            !this.relationship._relationshipHasNoData
-          ) {
-            return this.relationship._initializer;
-          }
-          // type.initializer === undefined && target.initializer === undefined
-          return undefined;
-        })();
-      }
     };
 
-    return Derived as unknown as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };

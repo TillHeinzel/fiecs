@@ -1,13 +1,13 @@
-import { Archetype, Entity, Id, Pair } from "./BasicObjects";
-import { ECSStorage, LinkType } from "./Storage";
+import { ArchetypeGraph, LinkType } from "./ArchetypeGraph";
+import { Archetype, Entity, Pair } from "./BasicObjects";
 
 export class AtomicOperationManager {
-  storage: ECSStorage<Archetype, Entity, Pair>;
+  storage: ArchetypeGraph<Archetype, Entity, Pair>;
   #opens = 0;
   #dirty = false;
   #targets: Map<Entity, OperationPayload> = new Map();
 
-  constructor(storage: ECSStorage<Archetype, Entity, Pair>) {
+  constructor(storage: ArchetypeGraph<Archetype, Entity, Pair>) {
     this.storage = storage;
   }
 
@@ -17,7 +17,7 @@ export class AtomicOperationManager {
 
   open(
     entity: Entity,
-    link: { type: LinkType; id: Id },
+    link: { type: LinkType; id: Entity | Pair },
     callback: (operationPayload: OperationPayload) => void,
   ) {
     this.#opens++;
@@ -49,42 +49,42 @@ export class AtomicOperationManager {
 }
 class OperationPayload {
   entity: Entity;
-  link: { type: LinkType; id: Id };
-  dataToSet: [Id, unknown][] = [];
-  dataToRemove: Set<Id> = new Set();
-  idsToAdd: Set<Id> = new Set();
-  idsToRemove: Set<Id> = new Set();
+  link: { type: LinkType; id: Entity | Pair };
+  dataToSet: [Entity | Pair, unknown][] = [];
+  dataToRemove: Set<Entity | Pair> = new Set();
+  idsToAdd: Set<Entity | Pair> = new Set();
+  idsToRemove: Set<Entity | Pair> = new Set();
 
-  constructor(entity: Entity, link: { type: LinkType; id: Id }) {
+  constructor(entity: Entity, link: { type: LinkType; id: Entity | Pair }) {
     this.entity = entity;
     this.link = link;
   }
 
-  add(id: Id) {
+  add(id: Entity | Pair) {
     this.idsToAdd.add(id);
   }
 
-  remove(id: Id) {
+  remove(id: Entity | Pair) {
     this.idsToRemove.add(id);
   }
 
-  set(id: Id, val: unknown) {
+  set(id: Entity | Pair, val: unknown) {
     this.dataToSet.push([id, val]);
   }
 
-  delete(id: Id) {
+  delete(id: Entity | Pair) {
     this.dataToRemove.add(id);
   }
 
-  isAdding(id: Id) {
+  isAdding(id: Entity | Pair) {
     return this.idsToAdd.has(id);
   }
 
-  isRemoving(id: Id) {
+  isRemoving(id: Entity | Pair) {
     return this.idsToRemove.has(id);
   }
 
-  close(storage: ECSStorage<Archetype, Entity, Pair>) {
+  close(storage: ArchetypeGraph<Archetype, Entity, Pair>) {
     storage.moveToArchetype(
       this.entity,
       this.link,

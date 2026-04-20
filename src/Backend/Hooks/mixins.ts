@@ -1,11 +1,11 @@
-import { MergeCtor, MixinBase } from "#/Utility/mixins";
+import { MixinBase } from "#/Utility/mixins";
 
 import { HookCallback, Hooks, Operation, Phase } from "./Hooks";
 
-export interface IHookEntity<
-  Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-  Entity extends IHookEntity<Archetype, Entity, Pair>,
-  Pair extends IHookPair<Archetype, Entity, Pair>,
+export interface IEntity<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   archetype?: Archetype;
   _hooks: Hooks<Entity, Pair>;
@@ -17,17 +17,16 @@ export interface IHookEntity<
   ): void;
 }
 
-export const HookEntityMixin =
+export const EntityMixin =
   <
-    Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-    Entity extends IHookEntity<Archetype, Entity, Pair>,
-    Pair extends IHookPair<Archetype, Entity, Pair>,
+    Archetype extends IArchetype<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
   <TBase extends MixinBase>(Base: TBase) => {
     const Derived = class
-      extends // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (Base as any)
-      implements IHookEntity<Archetype, Entity, Pair>
+      extends Base
+      implements IEntity<Archetype, Entity, Pair>
     {
       archetype?: Archetype;
       _hooks = new Hooks<Entity, Pair>();
@@ -60,15 +59,15 @@ export const HookEntityMixin =
       }
     };
 
-    return Derived as unknown as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };
 
-export interface IHookArchetype<
-  Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-  Entity extends IHookEntity<Archetype, Entity, Pair>,
-  Pair extends IHookPair<Archetype, Entity, Pair>,
+export interface IArchetype<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
-  _hooks: Hooks<Entity, Pair>;
+  readonly _hooks: Hooks<Entity, Pair>;
   addHook(
     phase: Phase,
     operation: Operation,
@@ -76,19 +75,18 @@ export interface IHookArchetype<
   ): void;
 }
 
-export const HookArchetypeMixin =
+export const ArchetypeMixin =
   <
-    Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-    Entity extends IHookEntity<Archetype, Entity, Pair>,
-    Pair extends IHookPair<Archetype, Entity, Pair>,
+    Archetype extends IArchetype<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
   <TBase extends MixinBase>(Base: TBase) => {
     const Derived = class
-      extends // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (Base as any)
-      implements IHookArchetype<Archetype, Entity, Pair>
+      extends Base
+      implements IArchetype<Archetype, Entity, Pair>
     {
-      _hooks = new Hooks<Entity, Pair>();
+      readonly _hooks = new Hooks<Entity, Pair>();
 
       addHook(
         phase: Phase,
@@ -99,29 +97,29 @@ export const HookArchetypeMixin =
       }
     };
 
-    return Derived as unknown as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };
 
-export interface IHookPair<
-  Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-  Entity extends IHookEntity<Archetype, Entity, Pair>,
-  Pair extends IHookPair<Archetype, Entity, Pair>,
+export interface IPair<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   runHooksFor(phase: Phase): { on: (entity: Entity) => void };
 }
 
-export const HookPairMixin =
+export const PairMixin =
   <
-    Archetype extends IHookArchetype<Archetype, Entity, Pair>,
-    Entity extends IHookEntity<Archetype, Entity, Pair>,
-    Pair extends IHookPair<Archetype, Entity, Pair>,
+    Archetype extends IArchetype<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
   <TBase extends MixinBase<{ relationship: Entity; target: Entity }>>(
     Base: TBase,
   ) => {
     const Derived = class
       extends Base
-      implements IHookPair<Archetype, Entity, Pair>
+      implements IPair<Archetype, Entity, Pair>
     {
       runHooksFor(phase: Phase) {
         return {
@@ -156,5 +154,5 @@ export const HookPairMixin =
       }
     };
 
-    return Derived as unknown as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };

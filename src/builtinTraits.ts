@@ -20,6 +20,14 @@ function addHook(
   query: Query<Entity> | Query<Pair>,
   callback: ComponentHookCallback,
 ): void;
+
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asComponent,
+  query: Query<Entity | Pair>,
+  callback: ComponentHookCallback,
+): void;
 function addHook(
   backend: Backend,
   phase: Phase,
@@ -27,11 +35,26 @@ function addHook(
   query: Query<Entity> | Query<Pair>,
   callback: RelationshipHookCallback,
 ): void;
+
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asRelationship,
+  query: Query<Entity | Pair>,
+  callback: RelationshipHookCallback,
+): void;
 function addHook(
   backend: Backend,
   phase: Phase,
   operation: Operation.asTarget,
   query: Query<Entity> | Query<Pair>,
+  callback: RelationshipHookCallback,
+): void;
+function addHook(
+  backend: Backend,
+  phase: Phase,
+  operation: Operation.asTarget,
+  query: Query<Entity | Pair>,
   callback: RelationshipHookCallback,
 ): void;
 function addHook(
@@ -78,18 +101,48 @@ function addHookToEntity(
 export function builtinTraits(backend: Backend) {
   const Trait = backend.tag("Trait");
   backend.add(Trait, Trait);
+
+  const traitCheckCallback = (pair: Entity | Pair, entity: Entity) => {
+    const isInUseAsComponent = (() => {
+      return (
+        backend
+          .makeQuery(entity)
+          .matchingArchetypes()
+          .some(() => true) ||
+        backend
+          .makeQuery([entity, backend.wildcard] as const)
+          .matchingArchetypes()
+          .some(() => true)
+      );
+    })();
+
+    if (isInUseAsComponent) {
+      throw new Error(
+        `Component "${backend.getDisplayName(pair)}" is a Trait and cannot be added to a component that is already in use!`,
+      );
+    }
+  };
+
+  addHook(
+    backend,
+    Phase.preAdd,
+    Operation.asComponent,
+    backend.makeQuery(Trait),
+    traitCheckCallback,
+  );
   addHook(
     backend,
     Phase.preAdd,
     Operation.asRelationship,
     backend.makeQuery(Trait),
-    (pair, entity) => {
-      if (entity.isInUseAsComponent()) {
-        throw new Error(
-          `Component "${backend.getDisplayName(pair.relationship)}" is a Trait and cannot be added to a component that is already in use!`,
-        );
-      }
-    },
+    traitCheckCallback,
+  );
+  addHook(
+    backend,
+    Phase.preAdd,
+    Operation.asTarget,
+    backend.makeQuery(Trait),
+    traitCheckCallback,
   );
 
   const Relationship = backend.tag("Relationship");
@@ -152,7 +205,8 @@ export function builtinTraits(backend: Backend) {
             relationship,
             backend.wildcard,
           ] as const)
-          .map((pair) => pair.target);
+          .filter((component) => isPair(component))
+          .map((pair) => (pair as Pair).target);
 
       recurse(getChildren(target));
 
@@ -217,8 +271,12 @@ export function builtinTraits(backend: Backend) {
     (pair, entity) => {
       backend
         .getComponents(pair.relationship, [With, backend.wildcard] as const)
+        .filter((withComp) => withComp.isPair())
         .forEach((withComp) =>
-          backend.add(entity, backend.pair(withComp.target, pair.target)),
+          backend.add(
+            entity,
+            backend.pair((withComp as Pair).target, pair.target),
+          ),
         );
     },
   );
@@ -275,7 +333,7 @@ export function builtinTraits(backend: Backend) {
       backend
         .getComponents(component, [With, backend.wildcard] as const)
 
-        .forEach((withId) => backend.add(entity, withId.target));
+        .forEach((withId) => backend.add(entity, (withId as Pair).target));
     },
   );
 
@@ -362,7 +420,7 @@ export function builtinTraits(backend: Backend) {
           .forEach((withComp) =>
             backend.remove(
               entity,
-              backend.pair(withComp.target, currentPair.target),
+              backend.pair((withComp as Pair).target, currentPair.target),
             ),
           );
       }
@@ -381,4 +439,8 @@ export function builtinTraits(backend: Backend) {
     TargetMustBeDefaultInitializable,
     Exclusive,
   };
+}
+
+function isPair(component: Entity | Pair): component is Pair {
+  return component.isPair();
 }

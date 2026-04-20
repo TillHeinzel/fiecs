@@ -1,30 +1,33 @@
-import { IStorageArchetype } from "./IArchetype";
-import { IStorageEntity } from "./IEntity";
+import { IArchetype, IEntity } from "./IArchetype";
 import { ILogger } from "./ILogger";
-import { IStoragePair } from "./IPair";
 import { LinkType, reverseLinkType } from "./Links";
 
-export class ECSStorage<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+export class ArchetypeGraph<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair,
 > {
   constructor(
     makeArchetype: {
       new (props: { components: ReadonlySet<Entity | Pair> }): Archetype;
     },
     makeEntity: { new (o: object): Entity },
+    query: (
+      components: ReadonlySet<Entity | Pair>,
+    ) => IteratorObject<Archetype>,
     logger: ILogger = new NullLogger(),
   ) {
     this.makeArchetype = makeArchetype;
     this.makeEntity = makeEntity;
     this.emptyArchetype = this.newArchetype(new Set());
+    this.query = query;
     this.logger = logger;
     logger.addArchetype(this.emptyArchetype);
   }
 
   makeArchetype;
   makeEntity;
+  query: (components: ReadonlySet<Entity | Pair>) => IteratorObject<Archetype>;
 
   private newArchetype(components: ReadonlySet<Entity | Pair>) {
     return new this.makeArchetype({ components });
@@ -59,18 +62,7 @@ export class ECSStorage<
       return this.emptyArchetype;
     }
 
-    const setOfArchetypes = components
-      .keys()
-      .map(
-        (component) =>
-          new Set(
-            component.matchingArchetypes().map(([archetype]) => archetype),
-          ),
-      )
-      .filter((setThisComponent) => setThisComponent !== undefined)
-      .reduce((setOfArchetypes, setThisComponent) =>
-        setOfArchetypes.intersection(setThisComponent),
-      );
+    const setOfArchetypes = this.query(components);
 
     if (setOfArchetypes === undefined) {
       return undefined;
@@ -189,7 +181,7 @@ export class ECSStorage<
       );
     }
 
-    archetype.detachConnections(this.logger);
+    archetype.links.detachLinks(this.logger);
     this.deleteArchetypeCallbacks.forEach((callback) => callback(archetype));
 
     this.logger.deleteArchetype(archetype);

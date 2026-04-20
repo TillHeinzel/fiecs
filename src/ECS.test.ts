@@ -2411,9 +2411,9 @@ describe("With trait", () => {
 
   test("Withs can be chained", () => {
     const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
+    const power = ecs.tag("power");
+    const responsibility = ecs.tag("responsibility");
+    const stress = ecs.tag("stress");
 
     const peterParker = ecs.entity("Peter Parker");
 
@@ -2832,7 +2832,7 @@ describe("Trait trait", () => {
   test("A trait-relationship can not be added to a component that is already used (throws)", () => {
     const ecs = new Fiecs.World();
     const someComponent = ecs.tag();
-    const someTarget = ecs.tag();
+    const someTarget = ecs.tag("some target");
 
     const someTrait = ecs.tag("some trait");
     someTrait.add(ecs.builtin.Trait);
@@ -2841,9 +2841,38 @@ describe("Trait trait", () => {
     e.add(someComponent);
 
     expect(() => {
-      someComponent.add(someTrait, someTarget);
+      someComponent.add(someTrait);
     }).toThrow(
       'Component "some trait" is a Trait and cannot be added to a component that is already in use!',
+    );
+    expect(() => {
+      someComponent.add(someTrait, someTarget);
+    }).toThrow(
+      'Component "(some trait, some target)" is a Trait and cannot be added to a component that is already in use!',
+    );
+
+    expect(() => {
+      someComponent.add(someTarget, someTrait);
+    }).toThrow(
+      'Component "(some target, some trait)" is a Trait and cannot be added to a component that is already in use!',
+    );
+  });
+
+  test("A trait-relationship can not be added to a component that is already used as relationship (throws)", () => {
+    const ecs = new Fiecs.World();
+    const someComponent = ecs.tag();
+    const someTarget = ecs.tag("some target");
+
+    const someTrait = ecs.tag("some trait");
+    someTrait.add(ecs.builtin.Trait);
+
+    const e = ecs.entity("Peter Parker");
+    e.add(someComponent, someTarget);
+
+    expect(() => {
+      someComponent.add(someTrait, someTarget);
+    }).toThrow(
+      'Component "(some trait, some target)" is a Trait and cannot be added to a component that is already in use!',
     );
   });
 });

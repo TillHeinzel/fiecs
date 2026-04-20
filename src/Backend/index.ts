@@ -1,5 +1,6 @@
+export type { ILogger } from "./ArchetypeGraph";
 export * from "./Backend";
-export type { HookCallback, Wildcard } from "./Backend";
+export type { HookCallback } from "./Backend";
 export { Entity, Pair } from "./BasicObjects";
 export { Operation, Phase } from "./Hooks";
-export type { ILogger } from "./Storage";
+export type { Query, Wildcard } from "./Query";

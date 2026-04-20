@@ -1,60 +1,66 @@
-import {
-  DataInitializeEntityMixin,
-  DataInitializePairMixin,
-  IDataInitializeEntity,
-  IDataInitializePair,
-} from "./DataInitializer";
-import {
-  HookArchetypeMixin,
-  HookEntityMixin,
-  HookPairMixin,
-  IHookArchetype,
-  IHookEntity,
-  IHookPair,
-} from "./Hooks";
-import {
-  IStorageArchetype,
-  IStorageEntity,
-  IStoragePair,
-  StorageArchetypeMixin,
-  StorageEntityMixin,
-  StoragePairMixin,
-} from "./Storage";
+import * as ArchetypeGraph from "./ArchetypeGraph";
+import * as ComponentIndex from "./ComponentIndex";
+import * as DataInitializer from "./DataInitializer";
+import * as Basics from "./EntityAndPairBasics";
+import * as Hooks from "./Hooks";
 
-const EntityBase: new (
+const EntitySuper: new (
   o: object,
-) => IStorageEntity<Archetype, Entity, Pair> &
-  IHookEntity<Archetype, Entity, Pair> &
-  IDataInitializeEntity<Archetype, Entity, Pair> = //
-  DataInitializeEntityMixin<Archetype, Entity, Pair>()(
-    HookEntityMixin<Archetype, Entity, Pair>()(
-      StorageEntityMixin<Archetype, Entity, Pair>()(class {}),
+) => Basics.IEntity<Archetype, Entity, Pair> &
+  ComponentIndex.IEntity<Archetype, Entity, Pair> &
+  Hooks.IEntity<Archetype, Entity, Pair> &
+  DataInitializer.IEntity<Archetype, Entity, Pair> &
+  ArchetypeGraph.IEntity<Archetype, Entity, Pair> = //
+  DataInitializer.EntityMixin<Archetype, Entity, Pair>()(
+    Hooks.EntityMixin<Archetype, Entity, Pair>()(
+      ComponentIndex.EntityMixin<Archetype, Entity, Pair>()(
+        ArchetypeGraph.EntityMixin<Archetype, Entity, Pair>()(
+          Basics.EntityMixin<Archetype, Entity, Pair>()(
+            //
+            class {},
+          ),
+        ),
+      ),
     ),
   );
 
-const ArchetypeBase: new (o: {
+const ArchetypeSuper: new (o: {
   components: ReadonlySet<Entity | Pair>;
-}) => IStorageArchetype<Archetype, Entity, Pair> &
-  IHookArchetype<Archetype, Entity, Pair> = //
-  HookArchetypeMixin<Archetype, Entity, Pair>()(
-    StorageArchetypeMixin<Archetype, Entity, Pair>()(class {}),
+}) => Hooks.IArchetype<Archetype, Entity, Pair> &
+  ArchetypeGraph.IArchetype<Archetype, Entity, Pair> = //
+  Hooks.ArchetypeMixin<Archetype, Entity, Pair>()(
+    ArchetypeGraph.ArchetypeMixin<Archetype, Entity, Pair>()(
+      //
+      class {
+        readonly components: ReadonlySet<Entity | Pair>;
+
+        constructor(props: { components: ReadonlySet<Entity | Pair> }) {
+          this.components = props.components;
+        }
+      },
+    ),
   );
 
-const PairBase: new (o: {
+const PairSuper: new (o: {
   relationship: Entity;
   target: Entity;
-}) => IHookPair<Archetype, Entity, Pair> &
-  IStoragePair<Archetype, Entity, Pair> &
-  IDataInitializePair<Archetype, Entity, Pair> = //
-  DataInitializePairMixin<Archetype, Entity, Pair>()(
-    HookPairMixin<Archetype, Entity, Pair>()(
-      StoragePairMixin<Archetype, Entity, Pair>()(class {}),
+}) => Basics.IPair<Archetype, Entity, Pair> &
+  Hooks.IPair<Archetype, Entity, Pair> &
+  ComponentIndex.IPair<Archetype, Entity, Pair> &
+  DataInitializer.IPair<Archetype, Entity, Pair> = //
+  DataInitializer.PairMixin<Archetype, Entity, Pair>()(
+    Hooks.PairMixin<Archetype, Entity, Pair>()(
+      ComponentIndex.PairMixin<Archetype, Entity, Pair>()(
+        Basics.PairMixin<Archetype, Entity, Pair>()(
+          //
+          class {},
+        ),
+      ),
     ),
   );
 
-export class Archetype extends ArchetypeBase {}
-export class Entity extends EntityBase {
+export class Archetype extends ArchetypeSuper {}
+export class Entity extends EntitySuper {
   name?: string;
 }
-export class Pair extends PairBase {}
-export type Id = Entity | Pair;
+export class Pair extends PairSuper {}

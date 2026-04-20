@@ -1,52 +1,44 @@
-import { MergeCtor, MixinBase } from "#/Utility/mixins";
+import { MixinBase } from "#/Utility/mixins";
 
-import { IStorageArchetype } from "./IArchetype";
-import { IStorageEntity } from "./IEntity";
+import { IArchetype } from "./IArchetype";
+import { IEntity } from "./IEntity";
 
-export interface IStoragePair<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+interface IPairIn<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > {
   relationship: Entity;
   target: Entity;
 
+  isPair(): this is Pair;
+  isEntity(): this is Entity;
+}
+
+export interface IPair<
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
+> extends IPairIn<Archetype, Entity, Pair> {
   removeBacklink(archetype: Archetype): void;
-  getBacklinks(): IteratorObject<Archetype>;
   addBacklink(archetype: Archetype): void;
 
   matches(archetype: Archetype): boolean;
   match(archetype: Archetype): IteratorObject<Pair>;
   matchingArchetypes(): IteratorObject<[Archetype, Set<Pair>]>;
-
-  isPair(): this is Pair;
-
-  isEntity(): this is Entity;
 }
 
-export const StoragePairMixin =
+export const PairMixin =
   <
-    Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-    Entity extends IStorageEntity<Archetype, Entity, Pair>,
-    Pair extends IStoragePair<Archetype, Entity, Pair>,
+    Archetype extends IArchetype<Archetype, Entity, Pair>,
+    Entity extends IEntity<Archetype, Entity, Pair>,
+    Pair extends IPair<Archetype, Entity, Pair>,
   >() =>
-  <TBase extends MixinBase>(Base: TBase) => {
+  <TBase extends MixinBase<IPairIn<Archetype, Entity, Pair>>>(Base: TBase) => {
     const Derived = class StoragePair
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      extends (Base as any)
-      implements IStoragePair<Archetype, Entity, Pair>
+      extends Base
+      implements IPair<Archetype, Entity, Pair>
     {
-      relationship: Entity;
-      target: Entity;
-
-      constructor(props: { relationship: Entity; target: Entity }) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        super(props);
-
-        this.relationship = props.relationship;
-        this.target = props.target;
-      }
-
       backLinksComponent?: Set<Archetype>;
       matches(archetype: Archetype): boolean {
         return this.backLinksComponent?.has(archetype) ?? false;
@@ -74,9 +66,6 @@ export const StoragePairMixin =
         this.relationship.getRelationshipWildcard().removeBacklink(archetype);
         this.target.getWildcardTarget().removeBacklink(archetype);
       }
-      getBacklinks(): IteratorObject<Archetype> {
-        return this.backLinksComponent?.values() ?? [][Symbol.iterator]();
-      }
       addBacklink(archetype: Archetype): void {
         if (!this.backLinksComponent) {
           this.backLinksComponent = new Set();
@@ -96,5 +85,5 @@ export const StoragePairMixin =
       }
     };
 
-    return Derived as MergeCtor<typeof Derived, TBase>;
+    return Derived;
   };

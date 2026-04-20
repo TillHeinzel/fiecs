@@ -12,14 +12,14 @@
 //   backLinksTarget?: Map<Entity, Pair>;
 // }
 
-import { IStorageArchetype } from "./IArchetype";
-import { IStorageEntity } from "./IEntity";
-import { IStoragePair } from "./IPair";
+import { IArchetype } from "./IArchetype";
+import { IEntity } from "./IEntity";
+import { IPair } from "./IPair";
 
 abstract class BacklinkQueryable<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
   T extends Entity | Pair,
 > {
   protected backlinks: Map<Archetype, Set<T>> = new Map();
@@ -49,9 +49,9 @@ abstract class BacklinkQueryable<
 
 // *
 export class Wildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > extends BacklinkQueryable<Archetype, Entity, Pair, Entity> {
   _wildcardBrand: undefined = undefined;
 
@@ -67,18 +67,18 @@ export class Wildcard<
 }
 
 export function isWildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 >(value: unknown): value is Wildcard<Archetype, Entity, Pair> {
   return value instanceof Wildcard;
 }
 
 // [*,*]
 export class WildcardWildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > extends BacklinkQueryable<Archetype, Entity, Pair, Pair> {
   _doubleWildcardBrand: undefined = undefined;
 
@@ -92,18 +92,18 @@ export class WildcardWildcard<
 }
 
 export function isWildcardWildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 >(value: unknown): value is WildcardWildcard<Archetype, Entity, Pair> {
   return value instanceof WildcardWildcard;
 }
 
 // [relationship, *]
 export class RelationshipWildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > extends BacklinkQueryable<Archetype, Entity, Pair, Pair> {
   _relationshipWildcardBrand: undefined = undefined;
 
@@ -112,17 +112,6 @@ export class RelationshipWildcard<
   constructor(relationship: Entity) {
     super();
     this.relationship = relationship;
-  }
-
-  private pairsLookup: Map<Entity, Pair> = new Map();
-  hasPairs(): boolean {
-    return this.pairsLookup.size > 0;
-  }
-  addPairBacklink(pair: Pair): void {
-    this.pairsLookup.set(pair.target, pair);
-  }
-  lookupTarget(target: Entity): Pair | undefined {
-    return this.pairsLookup.get(target);
   }
 
   protected checkMatch(archetype: Archetype): IteratorObject<Pair> {
@@ -134,18 +123,18 @@ export class RelationshipWildcard<
 }
 
 export function isRelationshipWildcard<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 >(value: unknown): value is RelationshipWildcard<Archetype, Entity, Pair> {
   return value instanceof RelationshipWildcard;
 }
 
 // [*, target]
 export class WildcardTarget<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 > extends BacklinkQueryable<Archetype, Entity, Pair, Pair> {
   _wildcardTargetBrand: undefined = undefined;
 
@@ -168,9 +157,9 @@ export class WildcardTarget<
 }
 
 export function isWildcardTarget<
-  Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-  Entity extends IStorageEntity<Archetype, Entity, Pair>,
-  Pair extends IStoragePair<Archetype, Entity, Pair>,
+  Archetype extends IArchetype<Archetype, Entity, Pair>,
+  Entity extends IEntity<Archetype, Entity, Pair>,
+  Pair extends IPair<Archetype, Entity, Pair>,
 >(value: unknown): value is WildcardTarget<Archetype, Entity, Pair> {
   return value instanceof WildcardTarget;
 }

@@ -1,4 +1,4 @@
-import { ILogger } from "./ILogger";
+import { ILogger } from "../ArchetypeGraph/ILogger";
 
 interface IArchetype<Archetype extends IArchetype<Archetype, Id>, Id> {
   links: Links<Archetype, Id>;
