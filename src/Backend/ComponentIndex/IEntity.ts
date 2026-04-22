@@ -1,5 +1,6 @@
 import { MixinBase } from "#/Utility/mixins";
 
+import { ArchetypeMatcher } from "./ComponentIndex";
 import { IArchetype } from "./IArchetype";
 import { IPair } from "./IPair";
 import { RelationshipWildcard, WildcardTarget } from "./Wildcard";
@@ -17,13 +18,12 @@ export interface IEntity<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
-> extends IEntityIn<Archetype, Entity, Pair> {
+>
+  extends
+    IEntityIn<Archetype, Entity, Pair>,
+    ArchetypeMatcher<Archetype, Entity, Pair, Entity> {
   removeBacklink(archetype: Archetype): void;
   addBacklink(archetype: Archetype): void;
-
-  matches(archetype: Archetype): boolean;
-  match(archetype: Archetype): IteratorObject<Entity>;
-  matchingArchetypes(): IteratorObject<[Archetype, Set<Entity>]>;
 
   getRelationshipWildcard(): RelationshipWildcard<Archetype, Entity, Pair>;
   getWildcardTarget(): WildcardTarget<Archetype, Entity, Pair>;
@@ -58,14 +58,9 @@ export const EntityMixin =
           .filter((component) => component === (this as unknown as Entity));
       }
 
-      matchingArchetypes(): IteratorObject<[Archetype, Set<Entity>]> {
+      matchingArchetypes(): IteratorObject<Archetype> {
         if (!this.backLinksComponent) return [][Symbol.iterator]();
-        return this.backLinksComponent
-          .keys()
-          .map((archetype) => [
-            archetype,
-            new Set<Entity>([this as unknown as Entity]),
-          ]);
+        return this.backLinksComponent.keys();
       }
 
       removeBacklink(archetype: Archetype): void {

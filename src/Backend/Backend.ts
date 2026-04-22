@@ -1,47 +1,37 @@
 import { ArchetypeGraph, ILogger, LinkType } from "./ArchetypeGraph";
 import { AtomicOperationManager } from "./AtomicOperationManager";
 import { Archetype, Entity, Pair } from "./BasicObjects";
-import { ComponentIndex } from "./ComponentIndex/ComponentIndex";
+import * as ComponentIndex from "./ComponentIndex";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { PairsManager } from "./PairsManager";
-import { mergeResults, Query, QueryBuilder, Wildcard } from "./Query";
+import { and, or, Query, QueryBuilder, SingleTerm } from "./Query";
 
 export class Backend {
-  private archetypeGraph = new ArchetypeGraph<Archetype, Entity, Pair>(
-    Archetype,
-    Entity,
-    (components) =>
-      components
-        .keys()
-        .map(
-          (component) =>
-            new Set(
-              component.matchingArchetypes().map(([archetype]) => archetype),
-            ),
-        )
-        .filter((setThisComponent) => setThisComponent !== undefined)
-        .reduce((setOfArchetypes, setThisComponent) =>
-          setOfArchetypes.intersection(setThisComponent),
-        )
-        .keys(),
-  );
   private nameMap = new NameMap();
   private entities: Set<Entity> = new Set();
   private components: Map<unknown, Entity> = new Map();
 
-  private operation = new AtomicOperationManager(this.archetypeGraph);
-
   private pairsManager = new PairsManager<Archetype, Entity, Pair>(Pair);
 
-  private componentIndex = new ComponentIndex<Archetype, Entity, Pair>(
-    this.pairsManager,
+  private componentIndex = new ComponentIndex.ComponentIndex<
+    Archetype,
+    Entity,
+    Pair
+  >(this.pairsManager);
+  queryBuilder = new QueryBuilder(this.componentIndex);
+  private archetypeGraph = new ArchetypeGraph<Archetype, Entity, Pair>(
+    Archetype,
+    Entity,
+    (components) =>
+      this.queryBuilder.build(and(...components)).matchingArchetypes(),
   );
-  private queryBuilder = new QueryBuilder(this.componentIndex);
+  private operation = new AtomicOperationManager(this.archetypeGraph);
 
   wildcard = this.componentIndex.wildcard;
+  doubleWildcard = this.componentIndex.doubleWildcard;
 
-  makeSingleTermQuery = this.queryBuilder.singleTerm.bind(this.queryBuilder);
+  makeQuery = this.queryBuilder.build.bind(this.queryBuilder);
 
   constructor() {
     this.archetypeGraph.addNewArchetypeCallbacks.add((newArchetype) => {
@@ -99,6 +89,14 @@ export class Backend {
     return this.pairsManager.ensurePair(relationship, target);
   }
 
+  relationshipWildcard(relationship: Entity) {
+    return relationship.getRelationshipWildcard();
+  }
+
+  wildcardTarget(target: Entity) {
+    return target.getWildcardTarget();
+  }
+
   initializer(component: Entity) {
     return this.components
       .entries()
@@ -145,16 +143,15 @@ export class Backend {
     entity.name = undefined;
     this.entities.delete(entity);
 
-    mergeResults([
-      this.queryBuilder.singleTerm(entity).matchingArchetypes(),
-      this.queryBuilder
-        .singleTerm([entity, this.wildcard])
-        .matchingArchetypes(),
-      this.queryBuilder
-        .singleTerm([this.wildcard, entity])
-        .matchingArchetypes(),
-    ])
-      .entries()
+    this.queryBuilder
+      .build(
+        or(
+          entity,
+          this.relationshipWildcard(entity),
+          this.wildcardTarget(entity),
+        ),
+      )
+      .archetypesWithMatches()
       .forEach(([archetype, components]) => {
         this.archetypeGraph.moveAllEntities(archetype, components);
         this.archetypeGraph.cleanup(archetype);
@@ -163,41 +160,22 @@ export class Backend {
     entity.destruct();
   }
 
-  removeFromAll(
-    term:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
-  ) {
-    this.queryBuilder
-      .singleTerm(term)
-      .matchingArchetypes()
-      .forEach(([archetype, components]) => {
-        this.archetypeGraph.moveAllEntities(archetype, components);
-        this.archetypeGraph.cleanup(archetype);
-      });
+  removeFromAll(term: SingleTerm) {
+    const query = this.queryBuilder.build(term);
+
+    query.matchingArchetypes().forEach((archetype) => {
+      this.archetypeGraph.moveAllEntities(archetype, query.match(archetype));
+      this.archetypeGraph.cleanup(archetype);
+    });
   }
 
-  destructAllWith(
-    x:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
-  ) {
-    const query = this.queryBuilder.singleTerm(x);
+  destructAllWith(x: SingleTerm) {
+    const query = this.queryBuilder.build(x);
 
     const toBeDestructed = new Set<Entity>();
     const toBeCleanedUp = new Set<Archetype>();
 
-    query.matchingArchetypes().forEach(([archetype]) => {
+    query.matchingArchetypes().forEach((archetype) => {
       archetype.entities.forEach((entity) => toBeDestructed.add(entity));
       toBeCleanedUp.add(archetype);
     });
@@ -214,36 +192,16 @@ export class Backend {
     this.archetypeGraph.clear(entity);
   }
 
-  has(
-    entity: Entity,
-    term:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
-  ) {
+  has(entity: Entity, term: SingleTerm) {
     if (!entity.isAlive()) return false;
-    return this.queryBuilder.singleTerm(term).matches(entity.archetype);
+    return this.queryBuilder.build(term).matches(entity.archetype);
   }
 
-  remove(
-    entity: Entity,
-    removeTerm:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
-  ) {
+  remove(entity: Entity, removeTerm: SingleTerm) {
     if (!entity.isAlive()) return;
 
     this.queryBuilder
-      .singleTerm(removeTerm)
+      .build(removeTerm)
       .match(entity.archetype)
       .forEach((id) => {
         if (!this.has(entity, id)) return;
@@ -265,14 +223,7 @@ export class Backend {
 
   getComponents(
     entity: Entity,
-    term?:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
+    term?: SingleTerm,
   ):
     | IteratorObject<Entity>
     | IteratorObject<Pair>
@@ -280,28 +231,15 @@ export class Backend {
     if (term === undefined) {
       return entity.archetype?.components.keys() ?? [][Symbol.iterator]();
     }
-    return this.queryBuilder.singleTerm(term).match(entity.archetype!).keys();
+    return this.queryBuilder.build(term).match(entity.archetype!).keys();
   }
 
-  findComponent(
-    entity: Entity,
-    term?:
-      | Wildcard
-      | Entity
-      | Pair
-      | [Entity, Entity]
-      | [Entity, Wildcard]
-      | [Wildcard, Entity]
-      | [Wildcard, Wildcard],
-  ) {
+  findComponent(entity: Entity, term?: SingleTerm) {
     if (term === undefined) {
       return entity.archetype?.components.keys().next().value;
     }
-    return this.queryBuilder
-      .singleTerm(term)
-      .match(entity.archetype!)
-      .keys()
-      .next().value;
+    return this.queryBuilder.build(term).match(entity.archetype!).keys().next()
+      .value;
   }
 
   add(
@@ -375,10 +313,10 @@ export class Backend {
   addHook(
     phase: Phase,
     operation: Operation,
-    query: Query<Entity | Pair>,
+    query: Query,
     callback: HookCallback,
   ) {
-    query.matchingArchetypes().forEach(([archetype]) => {
+    query.matchingArchetypes().forEach((archetype) => {
       archetype.addHook(phase, operation, callback);
     });
     this.archetypeGraph.addNewArchetypeCallbacks.add((archetype) => {

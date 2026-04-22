@@ -6,69 +6,69 @@ import { awaitGC, ObjectGCTracker } from "./Utility/GCtesting";
 
 describe("entities, names, aliveness", () => {
   test("default constructor", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    expect(ecs).toBeInstanceOf(Fiecs.World);
+    expect(world).toBeInstanceOf(Fiecs.World);
   });
 
   test("create new entity", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const e = world.entity();
 
     expect(e).toBeDefined();
   });
 
   test("create new entity with name", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity("Bob");
+    const world = new Fiecs.World();
+    const e = world.entity("Bob");
 
     expect(e.getName()).toBe("Bob");
   });
 
   test("get original entity if name exists", () => {
-    const ecs = new Fiecs.World();
-    const e1 = ecs.entity("Bob");
-    const e2 = ecs.entity("Bob");
+    const world = new Fiecs.World();
+    const e1 = world.entity("Bob");
+    const e2 = world.entity("Bob");
 
     expect(e1.isSameAs(e2)).toBe(true);
   });
 
   test("lookup nonexistent name is undefined", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    expect(ecs.lookupEntity("Bob")).toBeUndefined();
+    expect(world.lookupEntity("Bob")).toBeUndefined();
   });
 
   test("setting name to an already existing name throws", () => {
-    const ecs = new Fiecs.World();
-    ecs.entity("Bob");
-    const e2 = ecs.entity();
+    const world = new Fiecs.World();
+    world.entity("Bob");
+    const e2 = world.entity();
 
     expect(() => e2.setName("Bob")).toThrow();
   });
 
   test("changing name means old name can no longer be used to lookup the entity", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity("Bob");
+    const world = new Fiecs.World();
+    const e = world.entity("Bob");
     expect(e.getName()).toBe("Bob");
-    expect(ecs.lookupEntity("Bob")).toBeDefined();
+    expect(world.lookupEntity("Bob")).toBeDefined();
 
     e.setName("Alice");
 
     expect(e.getName()).toBe("Alice");
-    expect(ecs.lookupEntity("Bob")).toBeUndefined();
-    expect(ecs.lookupEntity("Alice")).toBeDefined();
-    expect(ecs.lookupEntity("Alice")!.getName()).toBe("Alice");
+    expect(world.lookupEntity("Bob")).toBeUndefined();
+    expect(world.lookupEntity("Alice")).toBeDefined();
+    expect(world.lookupEntity("Alice")!.getName()).toBe("Alice");
   });
 
   test("multiple entity objects target the same underlying data", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const e1 = ecs.entity("Bob");
+    const e1 = world.entity("Bob");
 
     expect(e1.getName()).toBe("Bob");
 
-    const e2 = ecs.lookupEntity("Bob");
+    const e2 = world.lookupEntity("Bob");
 
     expect(e1).not.toBe(e2);
     expect(e1.isSameAs(e2!)).toBe(true);
@@ -82,42 +82,66 @@ describe("entities, names, aliveness", () => {
     expect(e2!.getName()).toBe("Alice");
   });
 
+  test("setName returns entity for chaining", () => {
+    const world = new Fiecs.World();
+
+    const e1 = world.entity("Bob");
+
+    expect(e1.getName()).toBe("Bob");
+
+    const e2 = e1.setName("Alice").setName("Clint");
+
+    expect(e2).toBe(e1);
+    expect(e1.getName()).toBe("Clint");
+    expect(world.lookupEntity("Bob")).toBeUndefined();
+    expect(world.lookupEntity("Alice")).toBeUndefined();
+  });
+
   test("new entities are alive", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const e = world.entity();
 
     expect(e.isAlive()).toBe(true);
   });
 
   test("destructed entities are not alive", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const e = world.entity();
     e.destruct();
 
     expect(e.isAlive()).toBe(false);
   });
 
+  test("destruct cannot be chained", () => {
+    const world = new Fiecs.World();
+    const e = world.entity();
+
+    const x = e.destruct();
+
+    expect(x).toBeUndefined();
+  });
+
   test("destructed entities cannot be looked up", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity("Bob");
+    const world = new Fiecs.World();
+    const e = world.entity("Bob");
     e.destruct();
 
-    expect(ecs.lookupEntity("Bob")).toBeUndefined();
+    expect(world.lookupEntity("Bob")).toBeUndefined();
   });
 
   test("destructed entities have no name", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const e = ecs.entity("Bob");
+    const e = world.entity("Bob");
     e.destruct();
     expect(e.getName()).toBeUndefined();
   });
 
   test("destructing an entity removes all its tags", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
     e.add(playerTag);
     e.add(aiTag);
 
@@ -128,10 +152,10 @@ describe("entities, names, aliveness", () => {
   });
 
   test("destructing an entity removes all its components", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
-    const mana = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
+    const mana = world.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
 
@@ -143,15 +167,15 @@ describe("entities, names, aliveness", () => {
     expect(e.get(mana)).toBeUndefined();
   });
 
-  test("destructing an entity removes all its relationship tags", () => {
-    const ecs = new Fiecs.World();
+  test("destructing an entity removes all its pair tags", () => {
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -165,12 +189,12 @@ describe("entities, names, aliveness", () => {
   });
 
   describe("removeFromAll", () => {
-    test("removeFromAll removes the removed entity from all that have added it, but not as parts of relationships", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+    test("removeFromAll removes the removed entity from all that have added it, but not as parts of pairs", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -178,7 +202,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(likes, alice);
 
-      ecs.removeFromAll(likes);
+      world.removeFromAll(likes);
 
       expect(likes.isAlive()).toBe(true);
 
@@ -189,12 +213,12 @@ describe("entities, names, aliveness", () => {
       expect(bob.has(alice, likes)).toBe(true);
     });
 
-    test("removeFromAll works for relationships", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+    test("removeFromAll works for pairs", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -202,7 +226,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(likes, alice);
 
-      ecs.removeFromAll(likes, alice);
+      world.removeFromAll(likes, alice);
 
       expect(likes.isAlive()).toBe(true);
 
@@ -214,13 +238,13 @@ describe("entities, names, aliveness", () => {
     });
 
     test("removeFromAll works for pairs", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
-      const likesAlice = ecs.pair(likes, alice);
+      const likesAlice = world.pair(likes, alice);
 
       alice.add(likes);
       bob.add(likes);
@@ -228,7 +252,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(likes, alice);
 
-      ecs.removeFromAll(likesAlice);
+      world.removeFromAll(likesAlice);
 
       expect(likes.isAlive()).toBe(true);
 
@@ -239,14 +263,14 @@ describe("entities, names, aliveness", () => {
       expect(bob.has(alice, likes)).toBe(true);
     });
 
-    test("removeFromAll throws if we try to removeFromAll with two parameters where the first is already a relationship", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+    test("removeFromAll throws if we try to removeFromAll with two parameters where the first is already a pair", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
-      const likesAlice = ecs.pair(likes, alice);
+      const likesAlice = world.pair(likes, alice);
 
       alice.add(likes);
       bob.add(likes);
@@ -255,15 +279,15 @@ describe("entities, names, aliveness", () => {
       clint.add(likes, alice);
 
       // @ts-expect-error //should throw because overload is not acceptable
-      expect(() => ecs.removeFromAll(likesAlice, alice)).toThrow();
+      expect(() => world.removeFromAll(likesAlice, alice)).toThrow();
     });
 
     test("removeFromAll removes any associated component data", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.component(z.number().default(0));
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.component(z.number().default(0));
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(likes);
@@ -271,7 +295,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(likes, alice);
 
-      ecs.removeFromAll(likes);
+      world.removeFromAll(likes);
 
       expect(likes.isAlive()).toBe(true);
 
@@ -283,11 +307,11 @@ describe("entities, names, aliveness", () => {
     });
 
     test("removeFromAll(relationship, wildcard) removes all pairs using the relationship", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       alice.add(likes, bob);
@@ -307,7 +331,7 @@ describe("entities, names, aliveness", () => {
       clint.add(alice, likes);
       clint.add(bob, likes);
 
-      ecs.removeFromAll(likes, ecs.wildcard);
+      world.removeFromAll(likes, world.wildcard);
 
       expect(alice.has(likes)).toBe(true);
       expect(alice.has(likes, bob)).toBe(false);
@@ -328,11 +352,11 @@ describe("entities, names, aliveness", () => {
       expect(clint.has(bob, likes)).toBe(true);
     });
     test("removeFromAll(wildcard, target) removes all pairs targeting the target", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       alice.add(likes, bob);
@@ -352,7 +376,7 @@ describe("entities, names, aliveness", () => {
       clint.add(alice, likes);
       clint.add(bob, likes);
 
-      ecs.removeFromAll(ecs.wildcard, likes);
+      world.removeFromAll(world.wildcard, likes);
 
       expect(alice.has(likes)).toBe(true);
       expect(alice.has(likes, bob)).toBe(true);
@@ -374,12 +398,12 @@ describe("entities, names, aliveness", () => {
     });
 
     test("removeFromAll(wildcard) removes all user-added components, but not pairs", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
-      const someOtherTag = ecs.tag("someOtherTag");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
+      const someOtherTag = world.tag("someOtherTag");
 
       alice.add(likes);
       alice.add(likes, bob);
@@ -402,7 +426,7 @@ describe("entities, names, aliveness", () => {
       clint.add(bob, likes);
       clint.add(someOtherTag);
 
-      ecs.removeFromAll(ecs.wildcard);
+      world.removeFromAll(world.wildcard);
 
       expect(alice.has(likes)).toBe(false);
       expect(alice.has(likes, bob)).toBe(true);
@@ -427,12 +451,12 @@ describe("entities, names, aliveness", () => {
     });
 
     test("removeFromAll(wildcard, wildcard) removes all user-added pairs, but not components", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
-      const someOtherTag = ecs.tag("someOtherTag");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
+      const someOtherTag = world.tag("someOtherTag");
 
       alice.add(likes);
       alice.add(likes, bob);
@@ -455,7 +479,7 @@ describe("entities, names, aliveness", () => {
       clint.add(bob, likes);
       clint.add(someOtherTag);
 
-      ecs.removeFromAll(ecs.wildcard, ecs.wildcard);
+      world.removeFromAll(world.wildcard, world.wildcard);
 
       expect(alice.has(likes)).toBe(true);
       expect(alice.has(likes, bob)).toBe(false);
@@ -481,20 +505,20 @@ describe("entities, names, aliveness", () => {
   });
 
   describe("destructAllWith", () => {
-    test("destructAllWith deletes all entities with a tag, but not those that have the tag as part of a relationship", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const apples = ecs.entity();
+    test("destructAllWith deletes all entities with a tag, but not those that have the tag as part of a pair", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const apples = world.entity();
 
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
       clint.add(likes, apples);
 
-      ecs.destructAllWith(likes);
+      world.destructAllWith(likes);
 
       expect(alice.isAlive()).toBe(false);
       expect(bob.isAlive()).toBe(true);
@@ -503,20 +527,20 @@ describe("entities, names, aliveness", () => {
       expect(clint.has(likes, apples)).toBe(true);
     });
 
-    test("destructAllWith works for relationships", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const apples = ecs.entity();
+    test("destructAllWith works for pairs", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const apples = world.entity();
 
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
       clint.add(likes, apples);
 
-      ecs.destructAllWith(likes, apples);
+      world.destructAllWith(likes, apples);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(true);
@@ -524,22 +548,22 @@ describe("entities, names, aliveness", () => {
       expect(bob.has(apples, likes)).toBe(true);
     });
 
-    test("destructAllWith works for explicit relationships", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const apples = ecs.entity();
+    test("destructAllWith works for explicit pairs", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const apples = world.entity();
 
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
-      const likesApples = ecs.pair(likes, apples);
+      const likesApples = world.pair(likes, apples);
 
       alice.add(likes);
       bob.add(apples, likes);
       clint.add(likes, apples);
 
-      ecs.destructAllWith(likesApples);
+      world.destructAllWith(likesApples);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(true);
@@ -547,56 +571,56 @@ describe("entities, names, aliveness", () => {
       expect(bob.has(apples, likes)).toBe(true);
     });
 
-    test("destructAllWith throws if we try to destructAllWith with two parameters where the first is already a relationship", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const apples = ecs.entity();
+    test("destructAllWith throws if we try to destructAllWith with two parameters where the first is already a pair", () => {
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const apples = world.entity();
 
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
-      const likesApples = ecs.pair(likes, apples);
+      const likesApples = world.pair(likes, apples);
 
       alice.add(likes);
       bob.add(apples, likes);
       clint.add(likes, apples);
 
       // @ts-expect-error //should throw because overload is not acceptable
-      expect(() => ecs.destructAllWith(likesApples, alice)).toThrow(
+      expect(() => world.destructAllWith(likesApples, alice)).toThrow(
         "Cannot create a pair with a pair as the relationship",
       );
     });
 
     test("destructAllWith removes associated archetypes and edges", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const apples = ecs.entity();
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const apples = world.entity();
 
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       bob.add(apples, likes);
       clint.add(likes, apples);
       clint.add(likes);
 
-      ecs.startStatistics();
-      ecs.destructAllWith(likes);
+      world.startStatistics();
+      world.destructAllWith(likes);
 
       // remove [likes], [likes, (likes, apples)]
-      expect(ecs.getStatistics().archetypesDeleted).toBe(2);
+      expect(world.getStatistics().archetypesDeleted).toBe(2);
       // removes edges from [] to [likes], from [(likes, apples)] to [likes, (likes, apples)]
-      expect(ecs.getStatistics().linksDeleted).toBe(4);
+      expect(world.getStatistics().linksDeleted).toBe(4);
     });
 
     test("destructAllWith(relationship, wildcard) deletes all entities with pairs using the relationship", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       alice.add(bob, likes);
@@ -608,18 +632,18 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(likes, bob);
 
-      ecs.destructAllWith(likes, ecs.wildcard);
+      world.destructAllWith(likes, world.wildcard);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(false);
       expect(clint.isAlive()).toBe(false);
     });
     test("destructAllWith(wildcard, target) destroys all entities that have pairs targeting the target", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       alice.add(likes, bob);
@@ -631,7 +655,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(bob, likes);
 
-      ecs.destructAllWith(ecs.wildcard, likes);
+      world.destructAllWith(world.wildcard, likes);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(false);
@@ -639,11 +663,11 @@ describe("entities, names, aliveness", () => {
     });
 
     test("destructAllWith(wildcard) destroys all entities that have components which are not pairs", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       // alice.add(likes);
       alice.add(likes, bob);
@@ -655,7 +679,7 @@ describe("entities, names, aliveness", () => {
       clint.add(likes);
       clint.add(bob, likes);
 
-      ecs.destructAllWith(ecs.wildcard);
+      world.destructAllWith(world.wildcard);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(false);
@@ -663,11 +687,11 @@ describe("entities, names, aliveness", () => {
     });
 
     test("destructAllWith(wildcard, wildcard) destroys all entities that have components which are pairs", () => {
-      const ecs = new Fiecs.World();
-      const likes = ecs.tag("likes");
-      const alice = ecs.entity("Alice");
-      const bob = ecs.entity("Bob");
-      const clint = ecs.entity("Clint");
+      const world = new Fiecs.World();
+      const likes = world.tag("likes");
+      const alice = world.entity("Alice");
+      const bob = world.entity("Bob");
+      const clint = world.entity("Clint");
 
       alice.add(likes);
       // alice.add(likes, bob);
@@ -679,7 +703,7 @@ describe("entities, names, aliveness", () => {
       // clint.add(likes);
       clint.add(bob, likes);
 
-      ecs.destructAllWith(ecs.wildcard, ecs.wildcard);
+      world.destructAllWith(world.wildcard, world.wildcard);
 
       expect(alice.isAlive()).toBe(true);
       expect(bob.isAlive()).toBe(false);
@@ -690,23 +714,23 @@ describe("entities, names, aliveness", () => {
 
 describe("tags", () => {
   test("Creating a tag ", () => {
-    const ecs = new Fiecs.World();
-    const c = ecs.tag();
+    const world = new Fiecs.World();
+    const c = world.tag();
 
     expect(c).toBeDefined();
   });
 
   test("A tag can be created with a name", () => {
-    const ecs = new Fiecs.World();
-    const player = ecs.tag("Player");
+    const world = new Fiecs.World();
+    const player = world.tag("Player");
 
     expect(player.getName()).toBe("Player");
   });
 
-  test("setting a tag requires it being created first", () => {
-    const ecs = new Fiecs.World();
-    const tag = ecs.tag();
-    const e = ecs.entity();
+  test("adding a tag requires it being created first", () => {
+    const world = new Fiecs.World();
+    const tag = world.tag();
+    const e = world.entity();
     expect(() => e.add(tag)).not.toThrow();
 
     const otherEcs = new Fiecs.World();
@@ -714,46 +738,55 @@ describe("tags", () => {
     expect(() => e.add(deviantTag)).toThrow("Component does not exist in ECS");
   });
 
+  test("add can be chained", () => {
+    const world = new Fiecs.World();
+    const tag = world.tag();
+    const e = world.entity();
+
+    const e2 = e.add(tag);
+    expect(e2).toBe(e);
+  });
+
   test("adding a tag to an entity will show that it has that tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
     e.add(playerTag);
 
     expect(e.has(playerTag)).toBe(true);
-    const aiTag = ecs.tag();
+    const aiTag = world.tag();
     expect(e.has(aiTag)).toBe(false);
   });
 
   test("adding a tag to an entity will show that it has with wildcard", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
-    expect(e.has(ecs.wildcard)).toBe(false);
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
+    expect(e.has(world.wildcard)).toBe(false);
 
     e.add(playerTag);
-    expect(e.has(ecs.wildcard)).toBe(true);
+    expect(e.has(world.wildcard)).toBe(true);
   });
 
   test("adding a tag to an entity will NOT show that it has with [*,*], [tag, *] or [*, tag]", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
-    expect(e.has(ecs.wildcard, ecs.wildcard)).toBe(false);
-    expect(e.has(playerTag, ecs.wildcard)).toBe(false);
-    expect(e.has(ecs.wildcard, playerTag)).toBe(false);
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
+    expect(e.has(world.wildcard, world.wildcard)).toBe(false);
+    expect(e.has(playerTag, world.wildcard)).toBe(false);
+    expect(e.has(world.wildcard, playerTag)).toBe(false);
 
     e.add(playerTag);
-    expect(e.has(ecs.wildcard, ecs.wildcard)).toBe(false);
-    expect(e.has(playerTag, ecs.wildcard)).toBe(false);
-    expect(e.has(ecs.wildcard, playerTag)).toBe(false);
+    expect(e.has(world.wildcard, world.wildcard)).toBe(false);
+    expect(e.has(playerTag, world.wildcard)).toBe(false);
+    expect(e.has(world.wildcard, playerTag)).toBe(false);
   });
 
   test("tags can be iterated over with components() ", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
@@ -763,10 +796,10 @@ describe("tags", () => {
   });
 
   test("components(tag) returns the correct component", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
@@ -776,10 +809,10 @@ describe("tags", () => {
   });
 
   test("components(tag) returns nothing if the tag is not on the entity", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     // e.add(playerTag);
     e.add(aiTag);
@@ -789,60 +822,60 @@ describe("tags", () => {
   });
 
   test("tags can be iterated over with components(*) ", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
 
-    const comps = Array.from(e.components(ecs.wildcard));
+    const comps = Array.from(e.components(world.wildcard));
     expect(comps).toIncludeSameMembers([playerTag, aiTag]);
   });
 
   test("tags will not be iterated over with components(*, *) ", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
 
-    const comps = Array.from(e.components(ecs.wildcard, ecs.wildcard));
+    const comps = Array.from(e.components(world.wildcard, world.wildcard));
     expect(comps).toIncludeSameMembers([]);
   });
 
   test("tags will not be iterated over with components(tag, *) ", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
 
-    const comps = Array.from(e.components(playerTag, ecs.wildcard));
+    const comps = Array.from(e.components(playerTag, world.wildcard));
     expect(comps).toIncludeSameMembers([]);
   });
   test("tags will not be iterated over with components(*, tag) ", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
 
-    const comps = Array.from(e.components(ecs.wildcard, aiTag));
+    const comps = Array.from(e.components(world.wildcard, aiTag));
     expect(comps).toIncludeSameMembers([]);
   });
 
   test("findComponent() will return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
     expect(e.findComponent()).toBeUndefined();
 
@@ -852,9 +885,9 @@ describe("tags", () => {
   });
 
   test("findComponent(tag) will return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
     expect(e.findComponent(playerTag)).toBeUndefined();
 
@@ -864,10 +897,10 @@ describe("tags", () => {
   });
 
   test("findComponent(otherTag) will return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     expect(e.findComponent(aiTag)).toBeUndefined();
 
@@ -877,57 +910,57 @@ describe("tags", () => {
   });
 
   test("findComponent(*) will return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
-    expect(e.findComponent(ecs.wildcard)).toBeUndefined();
+    expect(e.findComponent(world.wildcard)).toBeUndefined();
 
     e.add(playerTag);
 
-    expect(e.findComponent(ecs.wildcard)?.isSameAs(playerTag)).toBe(true);
+    expect(e.findComponent(world.wildcard)?.isSameAs(playerTag)).toBe(true);
   });
 
   test("findComponent(*, *) will not return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
-    expect(e.findComponent(ecs.wildcard, ecs.wildcard)).toBeUndefined();
+    expect(e.findComponent(world.wildcard, world.wildcard)).toBeUndefined();
 
     e.add(playerTag);
 
-    expect(e.findComponent(ecs.wildcard, ecs.wildcard)).toBeUndefined();
+    expect(e.findComponent(world.wildcard, world.wildcard)).toBeUndefined();
   });
 
   test("findComponent(tag, *) will not return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
-    expect(e.findComponent(playerTag, ecs.wildcard)).toBeUndefined();
+    expect(e.findComponent(playerTag, world.wildcard)).toBeUndefined();
 
     e.add(playerTag);
 
-    expect(e.findComponent(playerTag, ecs.wildcard)).toBeUndefined();
+    expect(e.findComponent(playerTag, world.wildcard)).toBeUndefined();
   });
 
   test("findComponent(*, tag) will not return an added tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
-    expect(e.findComponent(ecs.wildcard, playerTag)).toBeUndefined();
+    expect(e.findComponent(world.wildcard, playerTag)).toBeUndefined();
 
     e.add(playerTag);
 
-    expect(e.findComponent(ecs.wildcard, playerTag)).toBeUndefined();
+    expect(e.findComponent(world.wildcard, playerTag)).toBeUndefined();
   });
 
   test("removing a tag from an entity will show that it no longer has that tag", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
@@ -936,108 +969,118 @@ describe("tags", () => {
     expect(e.has(playerTag)).toBe(false);
   });
 
+  test("remove can be chained", () => {
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const e = world.entity();
+
+    e.add(playerTag);
+    const e2 = e.remove(playerTag);
+    expect(e2).toBe(e);
+  });
+
   test("removing * from an entity will remove any tags", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
 
-    e.remove(ecs.wildcard);
+    e.remove(world.wildcard);
     expect(e.has(playerTag)).toBe(false);
     expect(e.has(aiTag)).toBe(false);
   });
 
   test("removing [*,*] from an entity will not remove any tags", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
 
-    e.remove(ecs.wildcard, ecs.wildcard);
+    e.remove(world.wildcard, world.wildcard);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
   });
 
   test("removing [tag,*] from an entity will not remove any tags", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
 
-    e.remove(playerTag, ecs.wildcard);
+    e.remove(playerTag, world.wildcard);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
   });
 
   test("removing [*,tag] from an entity will not remove any tags", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     e.add(aiTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
 
-    e.remove(ecs.wildcard, aiTag);
+    e.remove(world.wildcard, aiTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(true);
   });
 
   test("adding a tag twice changes nothing", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
     expect(e.has(aiTag)).toBe(false);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing tag the entity does not have does nothing", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
 
     e.add(playerTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     e.remove(aiTag);
     expect(e.has(playerTag)).toBe(true);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("clear removes all tags from the component", () => {
-    const ecs = new Fiecs.World();
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e = world.entity();
     e.add(playerTag);
     e.add(aiTag);
     e.clear();
@@ -1046,10 +1089,19 @@ describe("tags", () => {
     expect(e.has(aiTag)).toBe(false);
   });
 
-  test("Destructing a tag shows the tag to be nonalive", () => {
-    const ecs = new Fiecs.World();
+  test("clear can be chained", () => {
+    const world = new Fiecs.World();
+    const e = world.entity();
 
-    const likes = ecs.tag("likes");
+    const e2 = e.clear();
+
+    expect(e2).toBe(e);
+  });
+
+  test("Destructing a tag shows the tag to be nonalive", () => {
+    const world = new Fiecs.World();
+
+    const likes = world.tag("likes");
     expect(likes.isAlive()).toBe(true);
 
     likes.destruct();
@@ -1058,71 +1110,71 @@ describe("tags", () => {
   });
 
   test("trying to add a destructed tag to an entity throws", () => {
-    const ecs = new Fiecs.World();
-    const likes = ecs.tag();
-    const bob = ecs.entity("Bob");
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity("Bob");
     likes.destruct();
     expect(() => bob.add(likes)).toThrow("Component does not exist in ECS");
   });
 
   test("adding a tag to two entities with the same original archetype only requires one expensive lookup ", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const playerTag = ecs.tag();
-    const e1 = ecs.entity();
-    const e2 = ecs.entity();
-    expect(ecs.getStatistics().expensiveLookups).toBe(0);
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const playerTag = world.tag();
+    const e1 = world.entity();
+    const e2 = world.entity();
+    expect(world.getStatistics().expensiveLookups).toBe(0);
     e1.add(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
     e2.add(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a tag does not require additional expensive lookups, because links are created when the tag is added", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const playerTag = ecs.tag();
-    const e1 = ecs.entity();
+    const playerTag = world.tag();
+    const e1 = world.entity();
 
     e1.add(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     e1.remove(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("when adding two tags and then removing the first, each operation adds a link", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const playerTag = ecs.tag();
-    const aiTag = ecs.tag();
-    const e1 = ecs.entity();
+    const playerTag = world.tag();
+    const aiTag = world.tag();
+    const e1 = world.entity();
 
     e1.add(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     e1.add(aiTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(2);
+    expect(world.getStatistics().expensiveLookups).toBe(2);
 
     e1.remove(playerTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(3);
+    expect(world.getStatistics().expensiveLookups).toBe(3);
   });
 
   test("entities can be used as tags on other entities, as tags are just entities", () => {
-    const ecs = new Fiecs.World();
-    const bob = ecs.entity("Bob");
-    const alice = ecs.entity("Alice");
+    const world = new Fiecs.World();
+    const bob = world.entity("Bob");
+    const alice = world.entity("Alice");
     alice.add(bob);
 
     expect(alice.has(bob)).toBe(true);
   });
 
   test("Trying to set data on a tag throws", () => {
-    const ecs = new Fiecs.World();
-    const tag = ecs.tag("tag");
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const tag = world.tag("tag");
+    const e = world.entity();
     // @ts-expect-error // should not be allowed in ts, but needs to be tested
     expect(() => e.set(tag, 5)).toThrow('"tag" has no data to be set');
   });
@@ -1130,105 +1182,105 @@ describe("tags", () => {
 
 describe("statistics", () => {
   test("if statistics is started, can fetch statistics", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    ecs.startStatistics();
+    world.startStatistics();
 
-    expect(ecs.getStatistics()).toBeDefined();
+    expect(world.getStatistics()).toBeDefined();
   });
   test("if statistics is not started, can't fetch statistics", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    expect(() => ecs.getStatistics()).toThrow("Statistics not started");
+    expect(() => world.getStatistics()).toThrow("Statistics not started");
   });
 
   test("if statistics is started then stopped, can't fetch statistics", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    ecs.startStatistics();
-    ecs.stopStatistics();
+    world.startStatistics();
+    world.stopStatistics();
 
-    expect(() => ecs.getStatistics()).toThrow("Statistics not started");
+    expect(() => world.getStatistics()).toThrow("Statistics not started");
   });
 
   test("if statistics is started, expensive archetype lookups are counted", () => {
-    const ecs = new Fiecs.World();
-    const cheeseTag = ecs.tag();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    const cheeseTag = world.tag();
+    world.startStatistics();
 
-    const e = ecs.entity();
+    const e = world.entity();
     e.add(cheeseTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
-    const breadTag = ecs.tag();
+    expect(world.getStatistics().expensiveLookups).toBe(1);
+    const breadTag = world.tag();
     e.add(breadTag);
-    expect(ecs.getStatistics().expensiveLookups).toBe(2);
+    expect(world.getStatistics().expensiveLookups).toBe(2);
   });
 
   test("can lookup archetypes added", () => {
-    const ecs = new Fiecs.World();
-    const cheese = ecs.tag();
+    const world = new Fiecs.World();
+    const cheese = world.tag();
 
-    ecs.startStatistics();
-    const e = ecs.entity();
+    world.startStatistics();
+    const e = world.entity();
     e.add(cheese);
-    expect(ecs.getStatistics().archetypesAdded).toEqual(1);
+    expect(world.getStatistics().archetypesAdded).toEqual(1);
 
     e.add(cheese, e);
-    expect(ecs.getStatistics().archetypesAdded).toEqual(2);
+    expect(world.getStatistics().archetypesAdded).toEqual(2);
   });
 
   test("can lookup number of edges between archetypes", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const cheese = ecs.tag();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const cheese = world.tag();
+    const e = world.entity();
 
-    ecs.startStatistics();
+    world.startStatistics();
     e.add(cheese);
-    expect(ecs.getStatistics().linksAdded).toEqual(2);
+    expect(world.getStatistics().linksAdded).toEqual(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     e.add(cheese, e);
-    expect(ecs.getStatistics().linksAdded).toEqual(2);
+    expect(world.getStatistics().linksAdded).toEqual(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     e.remove(cheese);
-    expect(ecs.getStatistics().linksAdded).toEqual(2);
+    expect(world.getStatistics().linksAdded).toEqual(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     e.remove(cheese, e);
-    expect(ecs.getStatistics().linksAdded).toEqual(2);
+    expect(world.getStatistics().linksAdded).toEqual(2);
   });
 });
 
 describe("components", () => {
   test("Creating a component", () => {
-    const ecs = new Fiecs.World();
-    const c = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const c = world.component(z.number());
 
     expect(c).toBeDefined();
   });
 
   test("We can access the underlying initializer for a component", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
     const initializer = z.number().default(0);
-    const c = ecs.component(initializer);
+    const c = world.component(initializer);
     expect(c.getInitializer()).toBe(initializer);
   });
 
   test("registering a component twice with the same initializer returns the same component", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
     const initializer = z.number();
-    const c1 = ecs.component(initializer);
-    const c2 = ecs.component(initializer);
+    const c1 = world.component(initializer);
+    const c2 = world.component(initializer);
     expect(c2.isSameAs(c1)).toBe(true);
   });
 
   test("adding a component requires it being created first", () => {
-    const ecs = new Fiecs.World();
-    const c = ecs.component(z.number().default(0));
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const c = world.component(z.number().default(0));
+    const e = world.entity();
     expect(() => e.add(c)).not.toThrow();
 
     const otherEcs = new Fiecs.World();
@@ -1240,45 +1292,53 @@ describe("components", () => {
   });
 
   test("adding a component means that component can be gotten back", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
 
     e.add(health);
     expect(e.get(health)).toBe(0);
   });
 
   test("getting a non-existent component returns undefined", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
     expect(e.get(health)).toBeUndefined();
   });
 
   test("components are independent of each other", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
-    const mana = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
+    const mana = world.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
     expect(e.get(health)).toBe(100);
     expect(e.get(mana)).toBe(50);
   });
 
+  test("set can be chained", () => {
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
+    const e2 = e.set(health, 100);
+    expect(e2).toBe(e);
+  });
+
   test("a component that has been added can be checked for existence", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
     e.add(health);
     expect(e.has(health)).toBe(true);
   });
 
   test("added components are returned with components(), but without type information", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
-    const mana = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
+    const mana = world.component(z.number().default(0));
     e.add(health);
     e.add(mana);
 
@@ -1287,9 +1347,9 @@ describe("components", () => {
   });
 
   test("removing a component means that component can no longer be gotten or checked for existence", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
     e.add(health);
     expect(e.has(health)).toBe(true);
     e.remove(health);
@@ -1298,44 +1358,44 @@ describe("components", () => {
   });
 
   test("If a component doesn't have a default, add throws", () => {
-    const ecs = new Fiecs.World();
-    const health = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const health = world.component(z.number());
     health.setName("health");
-    const e = ecs.entity();
+    const e = world.entity();
     expect(() => e.add(health)).toThrow(
       'Component "health" cannot be default initialized',
     );
   });
 
   test("A components value can be set, and the updated value can be get", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
     e.add(health);
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
   });
 
   test("setting a component automatically adds it", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().default(0));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().default(0));
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
   });
 
   test("set allows a component to have no default value", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
   });
 
   test("Setting a component with a bad type throws an error", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
     // @ts-expect-error // this should throw because "not a number" is not a number
     expect(() => e.set(health, "not a number")).toThrow(
       "Invalid component data",
@@ -1343,28 +1403,28 @@ describe("components", () => {
   });
 
   test("Setting a component which doesn't fulfill the schema throws an error", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number().min(0).max(100));
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number().min(0).max(100));
     expect(() => e.set(health, -1)).toThrow("Invalid component data");
     expect(() => e.set(health, 101)).toThrow("Invalid component data");
   });
 
   test("Adding a component to an entity that already has it does nothing", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const health = ecs.component(z.number().default(100));
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const health = world.component(z.number().default(100));
+    const e = world.entity();
     e.set(health, 50);
     e.add(health);
     expect(e.get(health)).toBe(50);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("adding a component requires it being created first", () => {
-    const ecs = new Fiecs.World();
-    const c = ecs.component(z.number().default(0));
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const c = world.component(z.number().default(0));
+    const e = world.entity();
     expect(() => e.add(c)).not.toThrow();
 
     const otherEcs = new Fiecs.World();
@@ -1376,10 +1436,10 @@ describe("components", () => {
   });
 
   test("clearing an entity removes all components from the entity", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
-    const health = ecs.component(z.number());
-    const mana = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const e = world.entity();
+    const health = world.component(z.number());
+    const mana = world.component(z.number());
     e.set(health, 100);
     e.set(mana, 50);
     e.clear();
@@ -1390,53 +1450,53 @@ describe("components", () => {
   });
 
   test("adding a component to two entities with the same original archetype only requires one expensive lookup", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const health = ecs.component(z.number());
+    const health = world.component(z.number());
 
-    const e1 = ecs.entity();
-    const e2 = ecs.entity();
-    expect(ecs.getStatistics().expensiveLookups).toBe(0);
+    const e1 = world.entity();
+    const e2 = world.entity();
+    expect(world.getStatistics().expensiveLookups).toBe(0);
     e1.set(health, 100);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
     e2.set(health, 50);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a component from an entity does not require and expensive lookup, because links are established on add", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const health = ecs.component(z.number());
-    const e1 = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const health = world.component(z.number());
+    const e1 = world.entity();
     e1.set(health, 100);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
     e1.remove(health);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("when adding two components and then removing the first, each operation adds a link", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const health = ecs.component(z.number());
-    const damage = ecs.component(z.number());
-    const e1 = ecs.entity();
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const health = world.component(z.number());
+    const damage = world.component(z.number());
+    const e1 = world.entity();
 
     e1.set(health, 100);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     e1.set(damage, 50);
-    expect(ecs.getStatistics().expensiveLookups).toBe(2);
+    expect(world.getStatistics().expensiveLookups).toBe(2);
 
     e1.remove(health);
-    expect(ecs.getStatistics().expensiveLookups).toBe(3);
+    expect(world.getStatistics().expensiveLookups).toBe(3);
   });
 
   test("A component can be set to undefined", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.entity();
+    const world = new Fiecs.World();
+    const e = world.entity();
 
-    const health = ecs.component({ parse: (x: number | undefined) => x });
+    const health = world.component({ parse: (x: number | undefined) => x });
     e.set(health, 100);
     expect(e.get(health)).toBe(100);
 
@@ -1445,12 +1505,12 @@ describe("components", () => {
   });
 });
 
-describe("relationships", () => {
+describe("pairs", () => {
   test("adding a relationship tag requires a created Tag or Component", () => {
-    const ecs = new Fiecs.World();
-    const likes = ecs.tag();
-    const bob = ecs.entity();
-    const apples = ecs.entity();
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity();
+    const apples = world.entity();
     expect(() => bob.add(likes, apples)).not.toThrow();
 
     const otherEcs = new Fiecs.World();
@@ -1461,14 +1521,14 @@ describe("relationships", () => {
   });
 
   test("adding a relationship tag to an entity will show that it has that relationship tag", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
 
     expect(bob.has(eats, apples)).toBe(true);
@@ -1476,156 +1536,156 @@ describe("relationships", () => {
   });
 
   test("adding a relationship tag to an entity will show that it has [*,*], [relationship, *], [*, target]", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const bob = ecs.entity();
+    const eats = world.tag();
+    const apples = world.entity();
+    const bob = world.entity();
 
-    expect(bob.has(ecs.wildcard, ecs.wildcard)).toBe(false);
-    expect(bob.has(eats, ecs.wildcard)).toBe(false);
-    expect(bob.has(ecs.wildcard, apples)).toBe(false);
+    expect(bob.has(world.wildcard, world.wildcard)).toBe(false);
+    expect(bob.has(eats, world.wildcard)).toBe(false);
+    expect(bob.has(world.wildcard, apples)).toBe(false);
 
     bob.add(eats, apples);
-    expect(bob.has(ecs.wildcard, ecs.wildcard)).toBe(true);
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
-    expect(bob.has(ecs.wildcard, apples)).toBe(true);
+    expect(bob.has(world.wildcard, world.wildcard)).toBe(true);
+    expect(bob.has(eats, world.wildcard)).toBe(true);
+    expect(bob.has(world.wildcard, apples)).toBe(true);
   });
 
   test("adding a relationship tag to an entity will NOT show that it has *", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const bob = ecs.entity();
+    const eats = world.tag();
+    const apples = world.entity();
+    const bob = world.entity();
 
-    expect(bob.has(ecs.wildcard)).toBe(false);
+    expect(bob.has(world.wildcard)).toBe(false);
 
     bob.add(eats, apples);
-    expect(bob.has(ecs.wildcard)).toBe(false);
+    expect(bob.has(world.wildcard)).toBe(false);
   });
 
   test("Added pairs will be returned by components()", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
     bob.add(eats, pears);
 
     const comps = Array.from(bob.components());
     expect(comps).toIncludeSameMembers([
-      ecs.pair(eats, apples),
-      ecs.pair(eats, pears),
+      world.pair(eats, apples),
+      world.pair(eats, pears),
     ]);
   });
 
   test("Added pairs will not be returned by components(*)", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
     bob.add(eats, pears);
 
-    const comps = Array.from(bob.components(ecs.wildcard));
+    const comps = Array.from(bob.components(world.wildcard));
     expect(comps).toIncludeSameMembers([]);
   });
 
   test("Added pairs will be returned by components(*,*)", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
     bob.add(eats, pears);
 
-    const comps = Array.from(bob.components(ecs.wildcard, ecs.wildcard));
+    const comps = Array.from(bob.components(world.wildcard, world.wildcard));
     expect(comps).toIncludeSameMembers([
-      ecs.pair(eats, apples),
-      ecs.pair(eats, pears),
+      world.pair(eats, apples),
+      world.pair(eats, pears),
     ]);
   });
 
   test("Added pairs will be suitably returned by components(relationship,*)", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const likes = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const likes = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
     bob.add(eats, pears);
     bob.add(likes, apples);
     bob.add(likes, pears);
 
-    const comps = Array.from(bob.components(eats, ecs.wildcard));
+    const comps = Array.from(bob.components(eats, world.wildcard));
     expect(comps).toIncludeSameMembers([
-      ecs.pair(eats, apples),
-      ecs.pair(eats, pears),
+      world.pair(eats, apples),
+      world.pair(eats, pears),
     ]);
   });
 
   test("Added pairs will be suitably returned by components(relationship,*)", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const likes = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const likes = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
     bob.add(eats, pears);
     bob.add(likes, apples);
     bob.add(likes, pears);
 
-    const comps = Array.from(bob.components(ecs.wildcard, apples));
+    const comps = Array.from(bob.components(world.wildcard, apples));
     expect(comps).toIncludeSameMembers([
-      ecs.pair(eats, apples),
-      ecs.pair(likes, apples),
+      world.pair(eats, apples),
+      world.pair(likes, apples),
     ]);
   });
 
   test("findComponent() will return an added pair", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    // const likes = ecs.tag();
-    const apples = ecs.entity();
-    // const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    // const likes = world.tag();
+    const apples = world.entity();
+    // const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
 
-    expect(bob.findComponent()?.isSameAs(ecs.pair(eats, apples))).toBe(true);
+    expect(bob.findComponent()?.isSameAs(world.pair(eats, apples))).toBe(true);
   });
 
   test("findComponent(*) will not return an added pair", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    // const likes = ecs.tag();
-    const apples = ecs.entity();
-    // const pears = ecs.entity();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    // const likes = world.tag();
+    const apples = world.entity();
+    // const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
 
-    expect(bob.findComponent(ecs.wildcard)).toBeUndefined();
+    expect(bob.findComponent(world.wildcard)).toBeUndefined();
   });
 
   test("removing a relationship tag from an entity will show that it no longer has that relationship tag, without affecting other relationships", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity("apples");
-    const pears = ecs.entity("pears");
-    const bob = ecs.entity("bob");
+    const eats = world.tag();
+    const apples = world.entity("apples");
+    const pears = world.entity("pears");
+    const bob = world.entity("bob");
 
     bob.add(eats, apples);
     bob.add(eats, pears);
@@ -1640,12 +1700,12 @@ describe("relationships", () => {
   });
 
   test("removing [*,*] from an entity will remove all relationships", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity("apples");
-    const pears = ecs.entity("pears");
-    const bob = ecs.entity("bob");
+    const eats = world.tag();
+    const apples = world.entity("apples");
+    const pears = world.entity("pears");
+    const bob = world.entity("bob");
 
     bob.add(eats, apples);
     bob.add(eats, pears);
@@ -1653,20 +1713,20 @@ describe("relationships", () => {
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(true);
 
-    bob.remove(ecs.wildcard, ecs.wildcard);
+    bob.remove(world.wildcard, world.wildcard);
 
     expect(bob.has(eats, apples)).toBe(false);
     expect(bob.has(eats, pears)).toBe(false);
   });
 
   test("removing [relationship,*] from an entity will remove all pairs with that relationship", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const likes = ecs.tag();
-    const apples = ecs.entity("apples");
-    const pears = ecs.entity("pears");
-    const bob = ecs.entity("bob");
+    const eats = world.tag();
+    const likes = world.tag();
+    const apples = world.entity("apples");
+    const pears = world.entity("pears");
+    const bob = world.entity("bob");
 
     bob.add(eats, apples);
     bob.add(eats, pears);
@@ -1678,7 +1738,7 @@ describe("relationships", () => {
     expect(bob.has(likes, apples)).toBe(true);
     expect(bob.has(likes, pears)).toBe(true);
 
-    bob.remove(likes, ecs.wildcard);
+    bob.remove(likes, world.wildcard);
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(true);
@@ -1687,13 +1747,13 @@ describe("relationships", () => {
   });
 
   test("removing [*,target] from an entity will remove all pairs with that target", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const likes = ecs.tag();
-    const apples = ecs.entity("apples");
-    const pears = ecs.entity("pears");
-    const bob = ecs.entity("bob");
+    const eats = world.tag();
+    const likes = world.tag();
+    const apples = world.entity("apples");
+    const pears = world.entity("pears");
+    const bob = world.entity("bob");
 
     bob.add(eats, apples);
     bob.add(eats, pears);
@@ -1705,7 +1765,7 @@ describe("relationships", () => {
     expect(bob.has(likes, apples)).toBe(true);
     expect(bob.has(likes, pears)).toBe(true);
 
-    bob.remove(ecs.wildcard, pears);
+    bob.remove(world.wildcard, pears);
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
@@ -1714,57 +1774,57 @@ describe("relationships", () => {
   });
 
   test("adding a relationship tag twice does nothing quietly", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     bob.add(eats, apples);
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing non-existant relationship tag does nothing quietly", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
-    const bob = ecs.entity();
+    const eats = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
+    const bob = world.entity();
 
     bob.add(eats, apples);
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     bob.remove(eats, pears);
 
     expect(bob.has(eats, apples)).toBe(true);
     expect(bob.has(eats, pears)).toBe(false);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("clear removes all relationship tags from the entity", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
@@ -1778,144 +1838,150 @@ describe("relationships", () => {
   });
 
   test("adding a relationship tag to an entity will show that it has any of that relationship tag", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
+    const apples = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
 
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
+    expect(bob.has(eats, world.wildcard)).toBe(true);
   });
 
   test("removing the last of a relationship type will show that the entity no longer has that relationship tag", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
+    const eats = world.tag();
 
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
+    expect(bob.has(eats, world.wildcard)).toBe(true);
 
     bob.remove(eats, apples);
 
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
+    expect(bob.has(eats, world.wildcard)).toBe(true);
 
     bob.remove(eats, pears);
 
-    expect(bob.has(eats, ecs.wildcard)).toBe(false);
+    expect(bob.has(eats, world.wildcard)).toBe(false);
   });
 
   test("we can get the first added target for a relationship tag on an entity", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.tag();
-    const apples = ecs.entity();
-    const pears = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.tag();
+    const apples = world.entity();
+    const pears = world.entity();
 
-    const bob = ecs.entity();
+    const bob = world.entity();
     bob.add(eats, apples);
     bob.add(eats, pears);
 
     expect(
-      bob.findComponent(eats, ecs.wildcard)!.isSameAs(ecs.pair(eats, apples)),
+      bob
+        .findComponent(eats, world.wildcard)!
+        .isSameAs(world.pair(eats, apples)),
     ).toBe(true);
 
     bob.remove(eats, apples);
 
     expect(
-      bob.findComponent(eats, ecs.wildcard)!.isSameAs(ecs.pair(eats, pears)),
+      bob
+        .findComponent(eats, world.wildcard)!
+        .isSameAs(world.pair(eats, pears)),
     ).toBe(true);
   });
 
   test("adding a relationship tag to two entities with the same original archetype only requires one expensive lookup", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
-    const relatesTo = ecs.tag();
-    const e1 = ecs.entity();
-    const e2 = ecs.entity();
-    const e3 = ecs.entity();
-    expect(ecs.getStatistics().expensiveLookups).toBe(0);
+    const world = new Fiecs.World();
+    world.startStatistics();
+    const relatesTo = world.tag();
+    const e1 = world.entity();
+    const e2 = world.entity();
+    const e3 = world.entity();
+    expect(world.getStatistics().expensiveLookups).toBe(0);
     e1.add(relatesTo, e3);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
     e2.add(relatesTo, e3);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("removing a relationship tag from an entity requires no additional expensive lookups because links are established on add", () => {
-    const ecs = new Fiecs.World();
-    ecs.startStatistics();
+    const world = new Fiecs.World();
+    world.startStatistics();
 
-    const likes = ecs.tag();
-    const bob = ecs.entity();
-    const alice = ecs.entity();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
 
     bob.add(likes, alice);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
 
     bob.remove(likes, alice);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
+    expect(world.getStatistics().expensiveLookups).toBe(1);
   });
 
   test("Relationships can be components", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.component(z.number().default(0));
-    const bob = ecs.entity();
-    const apples = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.component(z.number().default(0));
+    const bob = world.entity();
+    const apples = world.entity();
 
     bob.add(eats, apples);
 
     expect(bob.has(eats, apples)).toBe(true);
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
-    expect(Array.from(bob.components(eats, ecs.wildcard))).toIncludeSameMembers(
-      [ecs.pair(eats, apples)],
-    );
+    expect(bob.has(eats, world.wildcard)).toBe(true);
     expect(
-      bob.findComponent(eats, ecs.wildcard)?.isSameAs(ecs.pair(eats, apples)),
+      Array.from(bob.components(eats, world.wildcard)),
+    ).toIncludeSameMembers([world.pair(eats, apples)]);
+    expect(
+      bob
+        .findComponent(eats, world.wildcard)
+        ?.isSameAs(world.pair(eats, apples)),
     ).toBe(true);
   });
 
   test("Added relationship components can be get like normal components", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.component(z.number().default(0));
-    const bob = ecs.entity();
-    const apples = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.component(z.number().default(0));
+    const bob = world.entity();
+    const apples = world.entity();
 
     bob.add(eats, apples);
     expect(bob.get(eats, apples)).toBe(0);
   });
 
   test("Relationship components can be set and get like normal components", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.component(z.number().default(0));
-    const bob = ecs.entity();
-    const apples = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.component(z.number().default(0));
+    const bob = world.entity();
+    const apples = world.entity();
 
     bob.set(eats, apples, 5);
     expect(bob.get(eats, apples)).toBe(5);
   });
 
   test("If the target for a tag-relationship is a component, it's data is used", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.component(z.number().default(0));
-    const bob = ecs.entity();
-    const apples = ecs.entity();
+    const world = new Fiecs.World();
+    const eats = world.component(z.number().default(0));
+    const bob = world.entity();
+    const apples = world.entity();
 
     bob.set(apples, eats, 5);
     expect(bob.get(apples, eats)).toBe(5);
   });
 
   test("If both the first and second parts of a relationship are components, the associated data belongs to the first one", () => {
-    const ecs = new Fiecs.World();
-    const eats = ecs.component(z.number().default(0));
-    const bob = ecs.entity();
-    const apples = ecs.component(z.string().default(""));
+    const world = new Fiecs.World();
+    const eats = world.component(z.number().default(0));
+    const bob = world.entity();
+    const apples = world.component(z.string().default(""));
 
     bob.set(eats, apples, 5);
     expect(bob.get(eats, apples)).toBe(5);
@@ -1924,74 +1990,139 @@ describe("relationships", () => {
     expect(bob.get(apples, eats)).toBe("test");
   });
 
-  test("concrete relationships can be created on the the ecs and world like tags & components", () => {
-    const ecs = new Fiecs.World();
+  test("concrete pairs can be created on the the world and used like tags & components", () => {
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag();
-    const bob = ecs.entity();
-    const alice = ecs.entity();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
 
-    const bobLikesAlice = ecs.pair(likes, alice);
+    const likesAlice = world.pair(likes, alice);
 
-    expect(bobLikesAlice).toBeDefined();
+    expect(likesAlice).toBeDefined();
 
-    bob.add(bobLikesAlice);
+    bob.add(likesAlice);
 
-    expect(bob.has(bobLikesAlice)).toBe(true);
+    expect(bob.has(likesAlice)).toBe(true);
     expect(bob.has(likes, alice)).toBe(true);
-    expect(bob.has(likes, ecs.wildcard)).toBe(true);
+    expect(bob.has(likes, world.wildcard)).toBe(true);
     expect(
-      Array.from(bob.components(likes, ecs.wildcard)),
-    ).toIncludeSameMembers([ecs.pair(likes, alice)]);
+      Array.from(bob.components(likes, world.wildcard)),
+    ).toIncludeSameMembers([world.pair(likes, alice)]);
 
-    bob.remove(bobLikesAlice);
+    bob.remove(likesAlice);
 
-    expect(bob.has(bobLikesAlice)).toBe(false);
+    expect(bob.has(likesAlice)).toBe(false);
     expect(bob.has(likes, alice)).toBe(false);
-    expect(bob.has(likes, ecs.wildcard)).toBe(false);
+    expect(bob.has(likes, world.wildcard)).toBe(false);
     expect(
-      Array.from(bob.components(likes, ecs.wildcard)),
+      Array.from(bob.components(likes, world.wildcard)),
     ).toIncludeSameMembers([]);
 
-    const eats = ecs.component(z.number().default(0));
-    const apples = ecs.entity();
+    const eats = world.component(z.number().default(0));
+    const apples = world.entity();
 
-    const bobEatsApples = ecs.pair(eats, apples);
+    const eatsApples = world.pair(eats, apples);
 
-    bob.set(bobEatsApples, 5);
+    bob.set(eatsApples, 5);
 
-    expect(bob.has(bobEatsApples)).toBe(true);
+    expect(bob.has(eatsApples)).toBe(true);
     expect(bob.has(eats, apples)).toBe(true);
-    expect(bob.has(eats, ecs.wildcard)).toBe(true);
-    expect(Array.from(bob.components(eats, ecs.wildcard))).toIncludeSameMembers(
-      [ecs.pair(eats, apples)],
-    );
+    expect(bob.has(eats, world.wildcard)).toBe(true);
     expect(
-      bob.findComponent(eats, ecs.wildcard)?.isSameAs(ecs.pair(eats, apples)),
+      Array.from(bob.components(eats, world.wildcard)),
+    ).toIncludeSameMembers([world.pair(eats, apples)]);
+    expect(
+      bob
+        .findComponent(eats, world.wildcard)
+        ?.isSameAs(world.pair(eats, apples)),
     ).toBe(true);
-    expect(bob.get(bobEatsApples)).toBe(5);
+    expect(bob.get(eatsApples)).toBe(5);
+  });
+
+  test("concrete relationship-wildcard pairs can be created on the the world and used normally", () => {
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
+    const likesWildcard = world.pair(likes, world.wildcard);
+    expect(likesWildcard).toBeDefined();
+
+    bob.add(likes, alice);
+    expect(bob.has(likesWildcard)).toBe(true);
+    expect(Array.from(bob.components(likesWildcard))).toIncludeSameMembers([
+      world.pair(likes, alice),
+    ]);
+    expect(bob.findComponent(likesWildcard)).toEqual(world.pair(likes, alice));
+    bob.remove(likesWildcard);
+    expect(bob.has(likesWildcard)).toBe(false);
+    expect(bob.has(likes, alice)).toBe(false);
+    expect(bob.has(likesWildcard)).toBe(false);
+    expect(Array.from(bob.components(likesWildcard))).toIncludeSameMembers([]);
+  });
+
+  test("concrete wildcard-target pairs can be created on the the world and used normally", () => {
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
+    const WildcardAlice = world.pair(world.wildcard, alice);
+    expect(WildcardAlice).toBeDefined();
+
+    bob.add(likes, alice);
+    expect(bob.has(WildcardAlice)).toBe(true);
+    expect(Array.from(bob.components(WildcardAlice))).toIncludeSameMembers([
+      world.pair(likes, alice),
+    ]);
+    expect(bob.findComponent(WildcardAlice)).toEqual(world.pair(likes, alice));
+    bob.remove(WildcardAlice);
+    expect(bob.has(WildcardAlice)).toBe(false);
+    expect(bob.has(likes, alice)).toBe(false);
+    expect(bob.has(WildcardAlice)).toBe(false);
+    expect(Array.from(bob.components(WildcardAlice))).toIncludeSameMembers([]);
+  });
+
+  test("concrete double wildcard pairs can be created on the the world and used normally", () => {
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
+    const doubleWildcard = world.pair(world.wildcard, world.wildcard);
+    expect(doubleWildcard).toBeDefined();
+
+    bob.add(likes, alice);
+    expect(bob.has(doubleWildcard)).toBe(true);
+    expect(Array.from(bob.components(doubleWildcard))).toIncludeSameMembers([
+      world.pair(likes, alice),
+    ]);
+    expect(bob.findComponent(doubleWildcard)).toEqual(world.pair(likes, alice));
+    bob.remove(doubleWildcard);
+    expect(bob.has(doubleWildcard)).toBe(false);
+    expect(bob.has(likes, alice)).toBe(false);
+    expect(bob.has(doubleWildcard)).toBe(false);
+    expect(Array.from(bob.components(doubleWildcard))).toIncludeSameMembers([]);
   });
 
   test("We can get the relationship and target for a pair as entities", () => {
-    const ecs = new Fiecs.World();
-    const likes = ecs.tag();
-    const bob = ecs.entity();
+    const world = new Fiecs.World();
+    const likes = world.tag();
+    const bob = world.entity();
 
-    const likesBob = ecs.pair(likes, bob);
+    const likesBob = world.pair(likes, bob);
 
     expect(likesBob.relationship().isSameAs(likes)).toBe(true);
     expect(likesBob.target().isSameAs(bob)).toBe(true);
   });
 
   test("concrete relationships cannot be added as relationships of new pairs", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag();
-    const bob = ecs.entity();
-    const alice = ecs.entity();
-    const clint = ecs.entity();
+    const likes = world.tag();
+    const bob = world.entity();
+    const alice = world.entity();
+    const clint = world.entity();
 
-    const LikesAlice = ecs.pair(likes, alice);
+    const LikesAlice = world.pair(likes, alice);
 
     expect(LikesAlice).toBeDefined();
 
@@ -2000,34 +2131,57 @@ describe("relationships", () => {
   });
 
   test("Trying to create concrete relationships with entities that have been deleted throws", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const eats = ecs.tag();
-    const apples = ecs.entity();
+    const eats = world.tag();
+    const apples = world.entity();
 
     eats.destruct();
 
-    expect(() => ecs.pair(eats, apples)).toThrow(
+    expect(() => world.pair(eats, apples)).toThrow(
       "Component does not exist in ECS",
     );
   });
 });
 
+describe("type", () => {
+  test("We can get an entities' type", () => {
+    const world = new Fiecs.World();
+    const cheese = world.tag("cheese");
+    const likes = world.tag("likes");
+
+    const alice = world.entity("Alice");
+    alice.add(likes);
+    alice.add(cheese);
+    alice.add(likes, cheese);
+
+    expect(alice.type()).toIncludeSameMembers([
+      likes,
+      cheese,
+      world.pair(likes, cheese),
+    ]);
+  });
+});
+
+describe("get_n set_n", () => {
+  test("set_n to set multiple components at once", () => {});
+});
+
 describe("Cleanup on destruct", () => {
   test("Destructing a tag removes the tag from all entities", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const cheese = ecs.tag("cheese");
-    const likes = ecs.tag("likes");
+    const cheese = world.tag("cheese");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
     alice.add(likes);
 
-    const bob = ecs.entity("Bob");
+    const bob = world.entity("Bob");
     bob.add(likes);
     bob.add(cheese);
 
-    const clint = ecs.entity("Clint");
+    const clint = world.entity("Clint");
     clint.add(cheese);
     clint.add(likes);
 
@@ -2039,18 +2193,18 @@ describe("Cleanup on destruct", () => {
   });
 
   test("Destructing a tag removes all relationships that use the tag", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const cheese = ecs.tag("cheese");
-    const likes = ecs.tag("likes");
+    const cheese = world.tag("cheese");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
 
-    const bob = ecs.entity("Bob");
+    const bob = world.entity("Bob");
     bob.add(cheese);
     bob.add(likes, alice);
 
-    const clint = ecs.entity("Clint");
+    const clint = world.entity("Clint");
     clint.add(likes, alice);
     clint.add(cheese);
 
@@ -2059,20 +2213,20 @@ describe("Cleanup on destruct", () => {
     expect(bob.has(likes, alice)).toBe(false);
     expect(clint.has(likes, alice)).toBe(false);
 
-    expect(alice.has(likes, ecs.wildcard)).toBe(false);
-    expect(bob.has(likes, ecs.wildcard)).toBe(false);
-    expect(clint.has(likes, ecs.wildcard)).toBe(false);
+    expect(alice.has(likes, world.wildcard)).toBe(false);
+    expect(bob.has(likes, world.wildcard)).toBe(false);
+    expect(clint.has(likes, world.wildcard)).toBe(false);
   });
 
   test("Destructing a tag that is used as both tag and relationship clears up both", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag("likes");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
     alice.add(likes);
 
-    const bob = ecs.entity("Bob");
+    const bob = world.entity("Bob");
     bob.add(likes, alice);
 
     likes.destruct();
@@ -2080,18 +2234,18 @@ describe("Cleanup on destruct", () => {
     expect(alice.has(likes)).toBe(false);
     expect(bob.has(likes, alice)).toBe(false);
 
-    expect(alice.has(likes, ecs.wildcard)).toBe(false);
-    expect(bob.has(likes, ecs.wildcard)).toBe(false);
+    expect(alice.has(likes, world.wildcard)).toBe(false);
+    expect(bob.has(likes, world.wildcard)).toBe(false);
   });
 
   test("Destructing a tag that is used as both tag and relationship on the same archetype clears up both", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag("likes");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
 
-    const bob = ecs.entity("Bob");
+    const bob = world.entity("Bob");
     alice.add(likes);
     bob.add(likes, alice);
 
@@ -2100,18 +2254,18 @@ describe("Cleanup on destruct", () => {
     expect(bob.has(likes)).toBe(false);
     expect(bob.has(likes, alice)).toBe(false);
 
-    expect(alice.has(likes, ecs.wildcard)).toBe(false);
-    expect(bob.has(likes, ecs.wildcard)).toBe(false);
+    expect(alice.has(likes, world.wildcard)).toBe(false);
+    expect(bob.has(likes, world.wildcard)).toBe(false);
   });
 
   test("Destructing a tag removes all relationships that use the tag, even if there would be intermediate archetypes created", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag("likes");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
 
-    const bob = ecs.entity("Bob");
+    const bob = world.entity("Bob");
     bob.add(likes);
     bob.add(likes, alice);
 
@@ -2124,77 +2278,77 @@ describe("Cleanup on destruct", () => {
   });
 
   test("Destructing a tag removes all archetypes and links using the tag", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const cheese = ecs.tag("cheese");
-    const likes = ecs.tag("likes");
+    const cheese = world.tag("cheese");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-    const clint = ecs.entity("Clint");
+    const alice = world.entity("Alice");
+    const bob = world.entity("Bob");
+    const clint = world.entity("Clint");
 
-    ecs.startStatistics();
+    world.startStatistics();
     alice.add(likes);
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     bob.add(likes);
-    expect(ecs.getStatistics().archetypesAdded).toBe(0);
-    expect(ecs.getStatistics().linksAdded).toBe(0);
+    expect(world.getStatistics().archetypesAdded).toBe(0);
+    expect(world.getStatistics().linksAdded).toBe(0);
 
-    ecs.startStatistics();
+    world.startStatistics();
     bob.add(cheese);
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     bob.add(likes, alice);
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     clint.add(likes, alice);
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     clint.add(likes);
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     clint.add(cheese);
-    expect(ecs.getStatistics().archetypesAdded).toBe(0);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(0);
+    expect(world.getStatistics().linksAdded).toBe(2);
 
-    ecs.startStatistics();
+    world.startStatistics();
     likes.destruct();
 
-    expect(ecs.getStatistics().archetypesDeleted).toBe(5);
-    expect(ecs.getStatistics().linksDeleted).toBe(12);
+    expect(world.getStatistics().archetypesDeleted).toBe(5);
+    expect(world.getStatistics().linksDeleted).toBe(12);
   });
 
   // TODO[epic=memory] - need to check for memory leaks at some point
   test.skip("Destructed archetypes and edges are garbage collected", async () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const likes = ecs.tag("likes");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
+    const alice = world.entity("Alice");
 
-    ecs.startStatistics();
+    world.startStatistics();
     alice.add(likes);
 
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(2);
+    expect(world.getStatistics().archetypesAdded).toBe(1);
+    expect(world.getStatistics().linksAdded).toBe(2);
     likes.destruct();
 
-    expect(ecs.getStatistics().archetypesDeleted).toBe(1);
-    expect(ecs.getStatistics().linksDeleted).toBe(2);
+    expect(world.getStatistics().archetypesDeleted).toBe(1);
+    expect(world.getStatistics().linksDeleted).toBe(2);
 
-    expect(ecs.getStatistics().liveArchetypes).toBe(1);
-    expect(ecs.getStatistics().liveLinks).toBe(2);
+    expect(world.getStatistics().liveArchetypes).toBe(1);
+    expect(world.getStatistics().liveLinks).toBe(2);
 
     // expect(global.gc).toBeDefined();
 
@@ -2210,21 +2364,21 @@ describe("Cleanup on destruct", () => {
     await awaitGC(10);
     expect(testTracker.count() === 0);
 
-    expect(ecs.getStatistics().liveArchetypes).toBe(0);
-    expect(ecs.getStatistics().liveLinks).toBe(0);
+    expect(world.getStatistics().liveArchetypes).toBe(0);
+    expect(world.getStatistics().liveLinks).toBe(0);
   });
 
   test.skip("Destructed archetypes and edges are garbage collected", async () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const cheese = ecs.tag("cheese");
-    const likes = ecs.tag("likes");
+    const cheese = world.tag("cheese");
+    const likes = world.tag("likes");
 
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-    const clint = ecs.entity("Clint");
+    const alice = world.entity("Alice");
+    const bob = world.entity("Bob");
+    const clint = world.entity("Clint");
 
-    ecs.startStatistics();
+    world.startStatistics();
     alice.add(likes);
     bob.add(likes);
 
@@ -2235,15 +2389,15 @@ describe("Cleanup on destruct", () => {
     clint.add(likes);
     clint.add(cheese);
 
-    expect(ecs.getStatistics().archetypesAdded).toBe(5);
-    expect(ecs.getStatistics().linksAdded).toBe(12);
+    expect(world.getStatistics().archetypesAdded).toBe(5);
+    expect(world.getStatistics().linksAdded).toBe(12);
     likes.destruct();
 
-    expect(ecs.getStatistics().archetypesDeleted).toBe(5);
-    expect(ecs.getStatistics().linksDeleted).toBe(12);
+    expect(world.getStatistics().archetypesDeleted).toBe(5);
+    expect(world.getStatistics().linksDeleted).toBe(12);
 
-    expect(ecs.getStatistics().liveArchetypes).toBe(6);
-    expect(ecs.getStatistics().liveLinks).toBe(12);
+    expect(world.getStatistics().liveArchetypes).toBe(6);
+    expect(world.getStatistics().liveLinks).toBe(12);
 
     // expect(global.gc).toBeDefined();
 
@@ -2259,22 +2413,22 @@ describe("Cleanup on destruct", () => {
     await awaitGC(10);
     expect(testTracker.count() === 0);
 
-    expect(ecs.getStatistics().liveLinks).toBe(0);
-    expect(ecs.getStatistics().liveArchetypes).toBe(0);
+    expect(world.getStatistics().liveLinks).toBe(0);
+    expect(world.getStatistics().liveArchetypes).toBe(0);
   });
 
   describe("Destructing an entity removes all relationships on other entities that target the destructed entity", () => {
-    let ecs: Fiecs.World;
+    let world: Fiecs.World;
     let likes: Fiecs.Component<z.ZodDefault<z.ZodNumber>>;
     let bob: Fiecs.Entity;
     let alice: Fiecs.Entity;
 
     beforeEach(() => {
-      ecs = new Fiecs.World();
-      likes = ecs.component(z.number().default(0));
+      world = new Fiecs.World();
+      likes = world.component(z.number().default(0));
 
-      bob = ecs.entity("Bob");
-      alice = ecs.entity("Alice");
+      bob = world.entity("Bob");
+      alice = world.entity("Alice");
 
       bob.add(likes, alice);
 
@@ -2287,15 +2441,15 @@ describe("Cleanup on destruct", () => {
       expect(bob.has(likes, alice)).toBe(false);
     });
     test("", () => {
-      expect(bob.has(likes, ecs.wildcard)).toBe(false);
+      expect(bob.has(likes, world.wildcard)).toBe(false);
     });
     test("", () => {
       expect(
-        Array.from(bob.components(likes, ecs.wildcard)),
+        Array.from(bob.components(likes, world.wildcard)),
       ).toIncludeSameMembers([]);
     });
     test("", () => {
-      expect(bob.findComponent(likes, ecs.wildcard)).toBeUndefined();
+      expect(bob.findComponent(likes, world.wildcard)).toBeUndefined();
     });
     test("including data", () => {
       expect(bob.get(likes, alice)).toBeUndefined();
@@ -2303,14 +2457,14 @@ describe("Cleanup on destruct", () => {
   });
 
   test("Destructing an entity removes all archetypes and edges that previously had the entity as a target", () => {
-    const ecs = new Fiecs.World();
-    const likes = ecs.tag();
+    const world = new Fiecs.World();
+    const likes = world.tag();
 
-    const doofus = ecs.tag();
+    const doofus = world.tag();
 
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-    const clint = ecs.entity("Clint");
+    const alice = world.entity("Alice");
+    const bob = world.entity("Bob");
+    const clint = world.entity("Clint");
 
     bob.add(likes, alice);
     clint.add(doofus);
@@ -2319,18 +2473,18 @@ describe("Cleanup on destruct", () => {
     expect(bob.has(likes, alice)).toBe(true);
     expect(clint.has(likes, alice)).toBe(true);
 
-    ecs.startStatistics();
+    world.startStatistics();
     alice.destruct();
 
     expect(bob.has(likes, alice)).toBe(false);
 
-    expect(ecs.getStatistics().archetypesDeleted).toBe(2);
-    expect(ecs.getStatistics().linksDeleted).toBe(4);
+    expect(world.getStatistics().archetypesDeleted).toBe(2);
+    expect(world.getStatistics().linksDeleted).toBe(4);
   });
 
   test("Trying to delete a component throws an error", () => {
-    const ecs = new Fiecs.World();
-    const health = ecs.component(z.number());
+    const world = new Fiecs.World();
+    const health = world.component(z.number());
     expect(() => health.destruct()).toThrow(
       "Components cannot be destructed (by default)",
     );
@@ -2339,926 +2493,14 @@ describe("Cleanup on destruct", () => {
   //TODO[epic=hierarchies,seq=1] - Cleanup Traits: (OnDelete, Delete), (OnDeleteTarget, Delete), Panic for either
 });
 
-describe("With trait", () => {
-  test("The ecs has a built-in component called with", () => {
-    const ecs = new Fiecs.World();
-
-    expect(ecs.builtin.With).toBeDefined();
-    expect(ecs.builtin.With).toBeInstanceOf(Fiecs.Entity);
-  });
-
-  test("With is a trait, a relationship, acyclic, cannot have data, and only works with targets that can be default initialized", () => {
-    const ecs = new Fiecs.World();
-
-    const withComponent = ecs.builtin.With;
-
-    expect(withComponent.has(ecs.builtin.Trait)).toBe(true);
-    expect(withComponent.has(ecs.builtin.Relationship)).toBe(true);
-    expect(withComponent.has(ecs.builtin.Acyclic)).toBe(true);
-    expect(withComponent.has(ecs.builtin.RelationshipHasNoData)).toBe(true);
-    expect(
-      withComponent.has(ecs.builtin.TargetMustBeDefaultInitializable),
-    ).toBe(true);
-  });
-
-  test("Adding the with-trait to a component means that the withed-component will always be added automatically", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-
-    expect(peterParker.has(power)).toBe(true);
-    expect(peterParker.has(responsibility)).toBe(true);
-  });
-
-  test("With-trait works when adding implicitly", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.set(power, "amazing");
-
-    expect(peterParker.has(power)).toBe(true);
-    expect(peterParker.has(responsibility)).toBe(true);
-  });
-
-  test("A component can have multiple With's", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const rogues = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    power.add(ecs.builtin.With, rogues);
-
-    peterParker.add(power);
-
-    expect(peterParker.has(power)).toBe(true);
-    expect(peterParker.has(responsibility)).toBe(true);
-    expect(peterParker.has(rogues)).toBe(true);
-  });
-
-  test("Withs can be chained", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag("power");
-    const responsibility = ecs.tag("responsibility");
-    const stress = ecs.tag("stress");
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    responsibility.add(ecs.builtin.With, stress);
-
-    peterParker.add(power);
-
-    expect(peterParker.has(power)).toBe(true);
-    expect(peterParker.has(responsibility)).toBe(true);
-    expect(peterParker.has(stress)).toBe(true);
-  });
-
-  test("Withs can be chained multiple times", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
-    const sadness = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    responsibility.add(ecs.builtin.With, stress);
-    stress.add(ecs.builtin.With, sadness);
-
-    peterParker.add(power);
-
-    expect(peterParker.has(power)).toBe(true);
-    expect(peterParker.has(responsibility)).toBe(true);
-    expect(peterParker.has(stress)).toBe(true);
-    expect(peterParker.has(sadness)).toBe(true);
-  });
-
-  test("chained Withs add no extra archetypes", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    responsibility.add(ecs.builtin.With, stress);
-
-    ecs.startStatistics();
-    peterParker.add(power);
-
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-  });
-
-  test("When with adds components with data, these are default initialized ", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.component(z.string().default("great"));
-    const rogues = ecs.component(z.string().default("lots"));
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    power.add(ecs.builtin.With, rogues);
-
-    peterParker.add(power);
-
-    expect(peterParker.get(responsibility)).toBe("great");
-    expect(peterParker.get(rogues)).toBe("lots");
-  });
-
-  test("When with adds components with data, these are default initialized when implicitly added", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.component(z.string().default("great"));
-    const rogues = ecs.component(z.string().default("lots"));
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    power.add(ecs.builtin.With, rogues);
-
-    peterParker.set(power, "amazing");
-
-    expect(peterParker.get(responsibility)).toBe("great");
-    expect(peterParker.get(rogues)).toBe("lots");
-  });
-
-  test("When with adds components with data, which are already on the entity, these are not modified ", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.component(z.string().default("great"));
-    const rogues = ecs.component(z.string().default("lots"));
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    power.add(ecs.builtin.With, rogues);
-
-    peterParker.set(responsibility, "huge");
-    peterParker.add(power);
-
-    expect(peterParker.get(responsibility)).toBe("huge");
-    expect(peterParker.get(rogues)).toBe("lots");
-  });
-
-  test("Removing a trait with a with does not remove the withed trait", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-    peterParker.remove(power);
-
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(responsibility)).toBe(true);
-  });
-
-  test("Removing a trait added due to With also removes the trait that has the With", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-    peterParker.remove(responsibility);
-
-    expect(peterParker.has(responsibility)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-  });
-
-  test("Removing a withed trait works recursively", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    responsibility.add(ecs.builtin.With, stress);
-
-    peterParker.add(power);
-    peterParker.remove(stress);
-
-    expect(peterParker.has(responsibility)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(stress)).toBe(false);
-  });
-
-  test("Removing the middle of a with chain clears only the upstream", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    responsibility.add(ecs.builtin.With, stress);
-
-    peterParker.add(power);
-    peterParker.remove(responsibility);
-
-    expect(peterParker.has(responsibility)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(stress)).toBe(true);
-  });
-
-  test("Removing a component due to its With being removed also clears out the data", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-    peterParker.remove(responsibility);
-
-    expect(peterParker.has(responsibility)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.get(power)).toBeUndefined();
-  });
-
-  test("A component that is target of With can be added and removed normally, if the With-relationship is not used", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.tag();
-    power.add(ecs.builtin.With, responsibility);
-
-    const peterPorker = ecs.entity("Peter Porker");
-
-    peterPorker.add(responsibility);
-    expect(peterPorker.has(responsibility)).toBe(true);
-    expect(peterPorker.has(power)).toBe(false);
-    expect(peterPorker.get(power)).toBeUndefined();
-
-    peterPorker.remove(responsibility);
-    expect(peterPorker.has(responsibility)).toBe(false);
-    expect(peterPorker.has(power)).toBe(false);
-    expect(peterPorker.get(power)).toBeUndefined();
-  });
-
-  test("Adding the with-trait to a relationship means that the withed-component will be added automatically with the same target", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const great = ecs.entity("great");
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power, great);
-
-    expect(peterParker.has(power, great)).toBe(true);
-    expect(peterParker.has(responsibility, great)).toBe(true);
-  });
-
-  test("Adding the with-trait to a relationship means that the withed-component will be added automatically with the same target on implicit add", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.tag();
-
-    const great = ecs.entity("great");
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.set(power, great, "amazing");
-
-    expect(peterParker.has(power, great)).toBe(true);
-    expect(peterParker.has(responsibility, great)).toBe(true);
-  });
-
-  test("Removing a relationship added through with automatically removes the source-relationship", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const great = ecs.entity("great");
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power, great);
-    peterParker.remove(responsibility, great);
-
-    expect(peterParker.has(power, great)).toBe(false);
-    expect(peterParker.has(responsibility, great)).toBe(false);
-  });
-
-  test("Removing a component that has a With does not remove the withed component", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.component(z.string().default("great"));
-    const responsibility = ecs.component(z.string().default("great"));
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-    peterParker.remove(power);
-
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(responsibility)).toBe(true);
-  });
-
-  test("Removing a component that is added due to with by multiple origins also removes all the components withing it", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const money = ecs.tag();
-    const responsibility = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    money.add(ecs.builtin.With, responsibility);
-
-    peterParker.add(power);
-    peterParker.add(money);
-    peterParker.remove(responsibility);
-
-    expect(peterParker.has(responsibility)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(money)).toBe(false);
-  });
-
-  test("Removing a component that is added due to with removes the one withing it, but not any other components withed by that original component", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const rogues = ecs.tag();
-
-    const peterParker = ecs.entity("Peter Parker");
-
-    power.add(ecs.builtin.With, responsibility);
-    power.add(ecs.builtin.With, rogues);
-
-    peterParker.add(power);
-    peterParker.remove(rogues);
-
-    expect(peterParker.has(rogues)).toBe(false);
-    expect(peterParker.has(power)).toBe(false);
-    expect(peterParker.has(responsibility)).toBe(true);
-  });
-
-  //TODO[epic=atomic operations] When the a component is attempted to be added with With, but it fails, neither should the original, nothing should change
-  //TODO[epic=atomic operations] Ensure that adding and removing Withs creates links without destroying existing ones, even if they are single directional
-  //TODO[epic=atomic operations] Ensure preAdd, postAdd and postRemove hooks are called correctly for component added/removed due to with
-});
-
-describe("Relationship trait", () => {
-  test("Relationship is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Relationship.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("A component marked as a Relationship cannot be added as a component", () => {
-    const ecs = new Fiecs.World();
-    const relationshipComponent = ecs.tag("relationship component");
-    relationshipComponent.add(ecs.builtin.Relationship);
-
-    const e = ecs.entity();
-    expect(() => e.add(relationshipComponent)).toThrow(
-      'Component "relationship component" is purely a relationship and cannot be used as a component',
-    );
-  });
-
-  test("A component marked as a Relationship cannot be added as a target in a relationship", () => {
-    const ecs = new Fiecs.World();
-    const markedRelationship = ecs.tag("relationship component");
-    markedRelationship.add(ecs.builtin.Relationship);
-
-    const tag = ecs.tag("some other relationship");
-
-    const e = ecs.entity();
-    expect(() => e.add(tag, markedRelationship)).toThrow(
-      'Component "relationship component" is purely a relationship and cannot be used as a target of a relationship',
-    );
-  });
-
-  test("A component marked as a Relationship CAN be added as a target in a relationship if the relationship is a Trait", () => {
-    const ecs = new Fiecs.World();
-    const markedRelationship = ecs.tag("relationship component");
-    markedRelationship.add(ecs.builtin.Relationship);
-
-    const trait = ecs.tag("some other relationship");
-    trait.add(ecs.builtin.Trait);
-
-    const e = ecs.entity();
-    expect(() => e.add(trait, markedRelationship)).not.toThrow();
-  });
-});
-
-describe("RelationshipHasNoData trait", () => {
-  test("RelationshipHasNoData is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.RelationshipHasNoData.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("A relationship marked as RelationshipHasNoData cannot have data set on it", () => {
-    const ecs = new Fiecs.World();
-
-    const relationship = ecs.tag("some relationship");
-    relationship.add(ecs.builtin.RelationshipHasNoData);
-
-    const e = ecs.entity();
-    const target = ecs.component(z.string());
-    target.setName("some target");
-
-    expect(() => e.set(relationship, target, "some data")).toThrow(
-      '"(some relationship, some target)" has no data to be set',
-    );
-  });
-
-  test("A relationship marked as RelationshipHasNoData cannot have data, so is not default initialized", () => {
-    const ecs = new Fiecs.World();
-
-    const relationship = ecs.tag("some relationship");
-    relationship.add(ecs.builtin.RelationshipHasNoData);
-
-    const e = ecs.entity();
-    const target = ecs.component(z.string().default("default"));
-
-    e.add(relationship, target);
-
-    expect(e.get(relationship, target)).toBeUndefined();
-  });
-
-  test("A relationship marked as RelationshipHasNoData cannot have data & can thus target non-default initializable components", () => {
-    const ecs = new Fiecs.World();
-
-    const relationship = ecs.tag("some relationship");
-    relationship.add(ecs.builtin.RelationshipHasNoData);
-
-    const e = ecs.entity();
-    const target = ecs.component(z.string());
-
-    expect(() => e.add(relationship, target)).not.toThrow();
-  });
-});
-
-describe("Trait trait", () => {
-  test("Trait is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Trait.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("A trait-relationship can not be added to a component that is already used (throws)", () => {
-    const ecs = new Fiecs.World();
-    const someComponent = ecs.tag();
-    const someTarget = ecs.tag("some target");
-
-    const someTrait = ecs.tag("some trait");
-    someTrait.add(ecs.builtin.Trait);
-
-    const e = ecs.entity("Peter Parker");
-    e.add(someComponent);
-
-    expect(() => {
-      someComponent.add(someTrait);
-    }).toThrow(
-      'Component "some trait" is a Trait and cannot be added to a component that is already in use!',
-    );
-    expect(() => {
-      someComponent.add(someTrait, someTarget);
-    }).toThrow(
-      'Component "(some trait, some target)" is a Trait and cannot be added to a component that is already in use!',
-    );
-
-    expect(() => {
-      someComponent.add(someTarget, someTrait);
-    }).toThrow(
-      'Component "(some target, some trait)" is a Trait and cannot be added to a component that is already in use!',
-    );
-  });
-
-  test("A trait-relationship can not be added to a component that is already used as relationship (throws)", () => {
-    const ecs = new Fiecs.World();
-    const someComponent = ecs.tag();
-    const someTarget = ecs.tag("some target");
-
-    const someTrait = ecs.tag("some trait");
-    someTrait.add(ecs.builtin.Trait);
-
-    const e = ecs.entity("Peter Parker");
-    e.add(someComponent, someTarget);
-
-    expect(() => {
-      someComponent.add(someTrait, someTarget);
-    }).toThrow(
-      'Component "(some trait, some target)" is a Trait and cannot be added to a component that is already in use!',
-    );
-  });
-});
-
-describe("Acyclic trait", () => {
-  test("Acyclic is a Trait", () => {
-    const ecs = new Fiecs.World();
-
-    expect(ecs.builtin.Acyclic.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("An acyclic relationship cannot target the entity it is added to", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.tag();
-
-    const acyclicRelationship = ecs.tag("acyclicRelationship");
-    acyclicRelationship.add(ecs.builtin.Acyclic);
-
-    expect(() => {
-      e.add(acyclicRelationship, e);
-    }).toThrow(
-      'Relationship "acyclicRelationship" is acyclic and cannot target the entity it is added to',
-    );
-  });
-
-  test("An acyclic relationships cannot be added to a component that would create a direct cycle", () => {
-    const ecs = new Fiecs.World();
-    const e = ecs.tag();
-    const target = ecs.tag();
-
-    const acyclicRelationship = ecs.tag("acyclicRelationship");
-    acyclicRelationship.add(ecs.builtin.Acyclic);
-
-    e.add(acyclicRelationship, target);
-
-    expect(() => {
-      target.add(acyclicRelationship, e);
-    }).toThrow(
-      'Relationship "acyclicRelationship" is acyclic and cannot be added to an entity that would create a cycle',
-    );
-  });
-
-  test("An acyclic relationship cannot be added to a component that would create an indirect cycle", () => {
-    const ecs = new Fiecs.World();
-    const power = ecs.tag();
-    const responsibility = ecs.tag();
-    const stress = ecs.tag();
-
-    const acyclicRelationship = ecs.tag("acyclicRelationship");
-    acyclicRelationship.add(ecs.builtin.Acyclic);
-
-    power.add(acyclicRelationship, responsibility);
-    responsibility.add(acyclicRelationship, stress);
-
-    expect(() => {
-      stress.add(acyclicRelationship, power);
-    }).toThrow(
-      'Relationship "acyclicRelationship" is acyclic and cannot be added to an entity that would create a cycle',
-    );
-  });
-});
-
-describe("Singleton trait", () => {
-  test("Singleton is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Singleton.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("Singletons throw if trying to set on an entity", () => {
-    const ecs = new Fiecs.World();
-
-    const singletonComponent = ecs.component(z.string());
-    singletonComponent.setName("singleton component");
-    singletonComponent.add(ecs.builtin.Singleton);
-
-    const e = ecs.entity();
-
-    expect(() => {
-      e.set(singletonComponent, "some value");
-    }).toThrow(
-      'Component "singleton component" is a singleton and cannot be added to entities other than itself',
-    );
-  });
-
-  test("Singletons throw if trying to add to an entity", () => {
-    const ecs = new Fiecs.World();
-
-    const singletonComponent = ecs.component(z.string().default(""));
-    singletonComponent.setName("singleton component");
-    singletonComponent.add(ecs.builtin.Singleton);
-
-    const e = ecs.entity();
-
-    expect(() => {
-      e.add(singletonComponent);
-    }).toThrow(
-      'Component "singleton component" is a singleton and cannot be added to entities other than itself',
-    );
-  });
-
-  test("Singletons don't throw if trying to set on the component itself", () => {
-    const ecs = new Fiecs.World();
-
-    const singletonComponent = ecs.component(z.string());
-    singletonComponent.setName("singleton component");
-    singletonComponent.add(ecs.builtin.Singleton);
-
-    expect(() => {
-      singletonComponent.set(singletonComponent, "some value");
-    }).not.toThrow();
-  });
-
-  test("When setting a component on the ecs world itself, it automatically becomes a singleton", () => {
-    const ecs = new Fiecs.World();
-
-    const singletonComponent = ecs.component(z.string());
-
-    ecs.set(singletonComponent, "some value");
-
-    expect(singletonComponent.has(ecs.builtin.Singleton)).toBe(true);
-  });
-});
-
-describe("Symmetric trait", () => {
-  test("Symmetric is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Symmetric.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("A relationship marked as Symmetric automatically creates the inverse relationship", () => {
-    const ecs = new Fiecs.World();
-    const friendOf = ecs.tag("friend of");
-    friendOf.add(ecs.builtin.Symmetric);
-
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-
-    alice.add(friendOf, bob);
-
-    expect(alice.has(friendOf, bob)).toBe(true);
-    expect(bob.has(friendOf, alice)).toBe(true);
-  });
-
-  test("A relationship marked as Symmetric automatically removes the inverse relationship when removed", () => {
-    const ecs = new Fiecs.World();
-    const friendOf = ecs.tag("friend of");
-    friendOf.add(ecs.builtin.Symmetric);
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-    alice.add(friendOf, bob);
-
-    alice.remove(friendOf, bob);
-
-    expect(alice.has(friendOf, bob)).toBe(false);
-    expect(bob.has(friendOf, alice)).toBe(false);
-  });
-
-  test("When Symmetric is removed from a relationship, it no longer adds the inverse when added", () => {
-    const ecs = new Fiecs.World();
-    const friendOf = ecs.tag("friend of");
-    friendOf.add(ecs.builtin.Symmetric);
-
-    const alice = ecs.entity("Alice");
-    const bob = ecs.entity("Bob");
-    const clint = ecs.entity("Clint");
-
-    alice.add(friendOf, bob);
-    friendOf.remove(ecs.builtin.Symmetric);
-    alice.add(friendOf, clint);
-
-    expect(alice.has(friendOf, bob)).toBe(true);
-    expect(bob.has(friendOf, alice)).toBe(true);
-    expect(alice.has(friendOf, clint)).toBe(true);
-    expect(clint.has(friendOf, alice)).toBe(false);
-  });
-
-  //TODO[epic=atomic operations] When the other half of a symmetric relationship cannot be added, neither should the first
-});
-
-describe("Target trait", () => {
-  test("Target is a trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Target.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("An entity marked as Target can be used as target of a relationship", () => {
-    const ecs = new Fiecs.World();
-
-    const e = ecs.entity();
-    const target = ecs.entity();
-    target.add(ecs.builtin.Target);
-    const r = ecs.tag();
-
-    expect(() => {
-      e.add(r, target);
-    }).not.toThrow();
-  });
-
-  test("An entity marked as Target can NOT be used as a relationship", () => {
-    const ecs = new Fiecs.World();
-
-    const e = ecs.entity();
-    const target = ecs.entity("marked target");
-    target.add(ecs.builtin.Target);
-    const r = ecs.tag();
-
-    expect(() => {
-      e.add(target, r);
-    }).toThrow(
-      'Entity "marked target" is marked as a Target and cannot be used as a relationship',
-    );
-  });
-
-  test("An entity marked as Target can NOT be used as component", () => {
-    const ecs = new Fiecs.World();
-
-    const e = ecs.entity();
-    const target = ecs.entity("marked target");
-    target.add(ecs.builtin.Target);
-
-    expect(() => {
-      e.add(target);
-    }).toThrow(
-      'Entity "marked target" is marked as a Target and cannot be used as a component',
-    );
-  });
-});
-
-describe("TargetMustBeDefaultInitializable trait", () => {
-  test("TargetMustBeDefaultInitializable is a trait", () => {
-    const ecs = new Fiecs.World();
-    expect(
-      ecs.builtin.TargetMustBeDefaultInitializable.has(ecs.builtin.Trait),
-    ).toBe(true);
-  });
-
-  test("A relationship marked as TargetMustBeDefaultInitializable cannot be used with a component that cannot be default initialized", () => {
-    const ecs = new Fiecs.World();
-    const entity = ecs.entity();
-    const nonDefaultInitializable = ecs.component(z.string());
-    nonDefaultInitializable.setName("non default initializable");
-
-    const r = ecs.tag("some relationship");
-    r.add(ecs.builtin.RelationshipHasNoData);
-    r.add(ecs.builtin.TargetMustBeDefaultInitializable);
-
-    expect(() => entity.add(r, nonDefaultInitializable)).toThrow(
-      'Relationship "some relationship" is marked as TargetMustBeDefaultInitializable while target "non default initializable" has data and is not default initializable',
-    );
-  });
-});
-
-describe("Exclusive Trait", () => {
-  test("Exclusive is a Trait", () => {
-    const ecs = new Fiecs.World();
-    expect(ecs.builtin.Exclusive.has(ecs.builtin.Trait)).toBe(true);
-  });
-
-  test("If an exclusive relationship is added to an entity with a different target, the target is replaced, not added", () => {
-    const ecs = new Fiecs.World();
-    const isOnPlanet = ecs.tag("is on planet");
-    isOnPlanet.add(ecs.builtin.Exclusive);
-
-    const earth = ecs.entity("Earth");
-    const mars = ecs.entity("Mars");
-
-    const alice = ecs.entity("Alice");
-
-    alice.add(isOnPlanet, earth);
-    alice.add(isOnPlanet, mars);
-
-    expect(alice.has(isOnPlanet, earth)).toBe(false);
-    expect(alice.has(isOnPlanet, mars)).toBe(true);
-  });
-
-  test("on Exclusive replacement, data of former is also replaced", () => {
-    const ecs = new Fiecs.World();
-    const isOnPlanet = ecs.component(z.number().default(0));
-    isOnPlanet.add(ecs.builtin.Exclusive);
-
-    const earth = ecs.entity("Earth");
-    const mars = ecs.entity("Mars");
-
-    const alice = ecs.entity("Alice");
-
-    alice.set(isOnPlanet, earth, 100);
-    alice.set(isOnPlanet, mars, 200);
-
-    expect(alice.get(isOnPlanet, earth)).toBeUndefined();
-    expect(alice.get(isOnPlanet, mars)).toBe(200);
-  });
-
-  test("If an exclusive relationship which also has With's is replaced, the Withs are also replaced", () => {
-    const ecs = new Fiecs.World();
-
-    const isOnPlanet = ecs.tag("is on planet");
-    isOnPlanet.add(ecs.builtin.Exclusive);
-
-    const hasAtmosphere = ecs.tag("has atmosphere");
-    isOnPlanet.add(ecs.builtin.With, hasAtmosphere);
-
-    const likesCurrentPlanet = ecs.tag("likes current planet");
-    isOnPlanet.add(ecs.builtin.With, likesCurrentPlanet);
-
-    const earth = ecs.entity("Earth");
-    const mars = ecs.entity("Mars");
-
-    const alice = ecs.entity("Alice");
-
-    alice.add(isOnPlanet, earth);
-    alice.add(isOnPlanet, mars);
-
-    expect(alice.has(hasAtmosphere, mars)).toBe(true);
-    expect(alice.has(likesCurrentPlanet, mars)).toBe(true);
-    expect(alice.has(hasAtmosphere, earth)).toBe(false);
-    expect(alice.has(likesCurrentPlanet, earth)).toBe(false);
-  });
-
-  test("When an exclusive relationship is added, but the replacement cannot be added, there should not be a remove", () => {
-    const ecs = new Fiecs.World();
-    const isOnPlanet = ecs.tag("is on planet");
-    isOnPlanet.add(ecs.builtin.Exclusive);
-    isOnPlanet.add(ecs.builtin.TargetMustBeDefaultInitializable);
-
-    const earth = ecs.entity("Earth");
-    const mars = ecs.component(z.string());
-
-    const alice = ecs.entity("Alice");
-
-    alice.add(isOnPlanet, earth);
-
-    expect(() => {
-      alice.add(isOnPlanet, mars);
-    }).toThrow();
-
-    expect(alice.has(isOnPlanet, earth)).toBe(true);
-    expect(alice.has(isOnPlanet, mars)).toBe(false);
-  });
-
-  test("Replacing an exclusive relationship happens with a single archetype move, and one archetype link being created, even under complex circumstances", () => {
-    const ecs = new Fiecs.World();
-    const isOnPlanet = ecs.tag("is on planet");
-    isOnPlanet.add(ecs.builtin.Exclusive);
-
-    const hasAtmosphere = ecs.tag("has atmosphere");
-    isOnPlanet.add(ecs.builtin.With, hasAtmosphere);
-
-    const likesCurrentPlanet = ecs.tag("likes current planet");
-    isOnPlanet.add(ecs.builtin.With, likesCurrentPlanet);
-
-    const someOtherTag = ecs.tag("some other tag");
-
-    const earth = ecs.entity("Earth");
-    const mars = ecs.entity("Mars");
-
-    const alice = ecs.entity("Alice");
-
-    alice.add(isOnPlanet, earth);
-    alice.add(someOtherTag); // this matters, because this way the archetype for just removing (isOnPlanet, earth) doesn't exist
-
-    ecs.startStatistics();
-    alice.add(isOnPlanet, mars);
-
-    expect(ecs.getStatistics().archetypesAdded).toBe(1);
-    expect(ecs.getStatistics().linksAdded).toBe(1);
-    expect(ecs.getStatistics().expensiveLookups).toBe(1);
-  });
-
-  // test("If an exclusive relationship which also has With's is replaced, the data of the Withs are also replaced", () => {});
-
-  // test("If an exclusive relationship is also Symmetric, the replacement also replaces on the two symmetry targets", () => {
-
-  // });
-
-  //TODO[epic=atomic operations] Exclusive replacements should happen with a single archetype move, and establish a single archetype link, not multiple moves and links
-  //TODO[epic=atomic operations] If an exclusive relationship is target of a With, adding it should work correctly
-});
-
 describe("Atomic operations", () => {
   test("When an add operation throws, it does not leave the ECS in a dirty state", () => {
-    const ecs = new Fiecs.World();
+    const world = new Fiecs.World();
 
-    const e = ecs.entity();
-    const target = ecs.entity("marked target");
-    target.add(ecs.builtin.Target);
-    const r = ecs.tag();
+    const e = world.entity();
+    const target = world.entity("marked target");
+    target.add(world.builtin.Target);
+    const r = world.tag();
 
     expect(() => {
       e.add(target, r);
@@ -3266,64 +2508,27 @@ describe("Atomic operations", () => {
       'Entity "marked target" is marked as a Target and cannot be used as a relationship',
     );
 
-    expect(ecs._debugBackendOperationIsDirty()).toBe(false);
+    expect(world._debugBackendOperationIsDirty()).toBe(false);
   });
 
   test("When a nested operation fails inside an operation, no changes are made", () => {
-    const ecs = new Fiecs.World();
-    const relationshipComponent = ecs.tag("relationship component");
-    relationshipComponent.add(ecs.builtin.Relationship);
+    const world = new Fiecs.World();
+    const relationshipComponent = world.tag("relationship component");
+    relationshipComponent.add(world.builtin.Relationship);
 
-    const tag = ecs.tag("tag");
-    tag.add(ecs.builtin.With, relationshipComponent); // this will try to add relationshipComponent as a component, which should throw, but it should not add the With relationship
+    const tag = world.tag("tag");
+    tag.add(world.builtin.With, relationshipComponent); // this will try to add relationshipComponent as a component, which should throw, but it should not add the With relationship
 
-    const e = ecs.entity();
+    const e = world.entity();
 
     expect(() => e.add(tag)).toThrow(
       'Component "relationship component" is purely a relationship and cannot be used as a component',
     );
 
-    expect(ecs._debugBackendOperationIsDirty()).toBe(false);
+    expect(world._debugBackendOperationIsDirty()).toBe(false);
     expect(e.has(tag)).toBe(false);
     expect(e.has(relationshipComponent)).toBe(false);
   });
-});
-
-describe("Queries", () => {
-  //TODO[epic=queries] - Single Term Queries
-  //TODO[epic=queries] - Multi-Term Queries
-  //TODO[epic=queries] - Wildcard Queries https://www.flecs.dev/flecs/md_docs_2Queries.html#wildcards
-  //TODO[epic=queries] - Any-wildcard Queries https://www.flecs.dev/flecs/md_docs_2Queries.html#wildcards
-  //TODO[epic=queries] - Cached Queries
-  //TODO[epic=queries] - .each((...)=>{...}) https://github.com/SanderMertens/flecs/blob/master/examples/cpp/queries/each_callback/src/main.cpp
-  //TODO[epic=queries] - .run https://github.com/SanderMertens/flecs/blob/master/examples/cpp/queries/basics/src/main.cpp
-  //TODO[epic=queries] - ignore empty tables for cached queries https://www.flecs.dev/flecs/md_docs_2Queries.html#performance-and-caching
-  //TODO[epic=queries] - querying by component-name (gives any, I guess) https://www.flecs.dev/flecs/md_docs_2Queries.html#components-2
-});
-
-describe("CanToggle Trait", () => {
-  //TODO[epic=queries] - CanToggle trait
-});
-describe("Reflexive Trait", () => {
-  //TODO[epic=queries] - Reflexive trait
-});
-describe("Transitive Trait", () => {
-  //TODO[epic=queries] - Transitive Trait
-});
-
-describe("Traversable Trait", () => {
-  //TODO[epic=queries] - Traversable trait
-});
-
-describe("Hierarchies", () => {
-  //TODO[epic=hierarchies] - ChildOf Relationship
-  //TODO[epic=hierarchies] - parent() and getChildren()
-  //TODO[epic=hierarchies] - world.lookup(parent.child) to find children by name
-  //TODO[epic=hierarchies] - parent.lookup(child)
-});
-
-describe("OneOf Trait", () => {
-  //TODO[epic=hierarchies] - OneOf Trait
 });
 
 describe("Inheritance", () => {
@@ -3332,24 +2537,11 @@ describe("Inheritance", () => {
   //TODO[epic=Inheritance] - inheritance-queries https://github.com/SanderMertens/flecs/blob/master/examples/cpp/queries/component_inheritance/src/main.cpp
 });
 
-describe("Final Trait", () => {
-  //TODO[epic=Inheritance] - Final Trait
-});
-describe("Inheritable Trait", () => {
-  //TODO[epic=Inheritance] - Inheritable Trait
-});
-describe("OnInstantiate Trait", () => {
-  //TODO[epic=Inheritance] - OnInstantiate Trait
-});
-
-//SECTION - Sparse storage
 //TODO[epic=sparse] - DontFragment trait
 //TODO[epic=sparse] - Sparse trait
-//!SECTION
-
-//SECTION - Events
-//!SECTION
 
 //TODO[epic=???] - cyclic variables queries https://github.com/SanderMertens/flecs/blob/master/examples/cpp/queries/cyclic_variables/src/main.cpp
 //TODO[epic=???] - change tracking for queries
-//TODO[epic=???] - ecs.deleteEmptyTables
+//TODO[epic=???] - world.deleteEmptyTables
+//TODO[epic=Systems] - Systems
+//TODO[epic=Observers] - Observers

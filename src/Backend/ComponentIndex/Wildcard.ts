@@ -1,17 +1,4 @@
-// export class Wildcard<
-//   Archetype extends IStorageArchetype<Archetype, Entity, Pair>,
-//   Entity extends IStorageEntity<Archetype, Entity, Pair>,
-//   Pair extends IStoragePair<Archetype, Entity, Pair>,
-// > {
-//   _wildcardBrand: undefined = undefined;
-//   // archetypes that have this entity as a component
-//   backLinksComponent?: Set<Archetype>;
-//   // relationships where this entity is the type
-//   backLinksRelationship?: Map<Entity, Pair>;
-//   // relationships where this entity is the target
-//   backLinksTarget?: Map<Entity, Pair>;
-// }
-
+import { ArchetypeMatcher } from "./ComponentIndex";
 import { IArchetype } from "./IArchetype";
 import { IEntity } from "./IEntity";
 import { IPair } from "./IPair";
@@ -21,7 +8,7 @@ abstract class BacklinkQueryable<
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
   T extends Entity | Pair,
-> {
+> implements ArchetypeMatcher<Archetype, Entity, Pair, T> {
   protected backlinks: Map<Archetype, Set<T>> = new Map();
 
   protected abstract checkMatch(archetype: Archetype): IteratorObject<T>;
@@ -36,8 +23,8 @@ abstract class BacklinkQueryable<
     this.backlinks.delete(archetype);
   }
 
-  matchingArchetypes(): IteratorObject<[Archetype, Set<T>]> {
-    return this.backlinks.entries();
+  matchingArchetypes(): IteratorObject<Archetype> {
+    return this.backlinks.keys();
   }
   matches(archetype: Archetype): boolean {
     return this.backlinks.has(archetype);
@@ -54,8 +41,6 @@ export class Wildcard<
   Pair extends IPair<Archetype, Entity, Pair>,
 > extends BacklinkQueryable<Archetype, Entity, Pair, Entity> {
   _wildcardBrand: undefined = undefined;
-
-  doubleWildcard = new WildcardWildcard<Archetype, Entity, Pair>();
 
   protected checkMatch(
     archetype: Archetype,
@@ -75,7 +60,7 @@ export function isWildcard<
 }
 
 // [*,*]
-export class WildcardWildcard<
+export class DoubleWildcard<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
@@ -91,12 +76,12 @@ export class WildcardWildcard<
   }
 }
 
-export function isWildcardWildcard<
+export function isDoubleWildcard<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
->(value: unknown): value is WildcardWildcard<Archetype, Entity, Pair> {
-  return value instanceof WildcardWildcard;
+>(value: unknown): value is DoubleWildcard<Archetype, Entity, Pair> {
+  return value instanceof DoubleWildcard;
 }
 
 // [relationship, *]

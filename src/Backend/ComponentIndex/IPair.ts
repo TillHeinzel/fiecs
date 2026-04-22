@@ -1,5 +1,6 @@
 import { MixinBase } from "#/Utility/mixins";
 
+import { ArchetypeMatcher } from "./ComponentIndex";
 import { IArchetype } from "./IArchetype";
 import { IEntity } from "./IEntity";
 
@@ -19,13 +20,12 @@ export interface IPair<
   Archetype extends IArchetype<Archetype, Entity, Pair>,
   Entity extends IEntity<Archetype, Entity, Pair>,
   Pair extends IPair<Archetype, Entity, Pair>,
-> extends IPairIn<Archetype, Entity, Pair> {
+>
+  extends
+    IPairIn<Archetype, Entity, Pair>,
+    ArchetypeMatcher<Archetype, Entity, Pair, Pair> {
   removeBacklink(archetype: Archetype): void;
   addBacklink(archetype: Archetype): void;
-
-  matches(archetype: Archetype): boolean;
-  match(archetype: Archetype): IteratorObject<Pair>;
-  matchingArchetypes(): IteratorObject<[Archetype, Set<Pair>]>;
 }
 
 export const PairMixin =
@@ -51,14 +51,9 @@ export const PairMixin =
           .filter((component) => component === (this as unknown as Pair));
       }
 
-      matchingArchetypes(): IteratorObject<[Archetype, Set<Pair>]> {
+      matchingArchetypes(): IteratorObject<Archetype> {
         if (!this.backLinksComponent) return [][Symbol.iterator]();
-        return this.backLinksComponent
-          .keys()
-          .map((archetype) => [
-            archetype,
-            new Set<Pair>([this as unknown as Pair]),
-          ]);
+        return this.backLinksComponent.keys();
       }
 
       removeBacklink(archetype: Archetype): void {

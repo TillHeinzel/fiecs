@@ -9,58 +9,88 @@ class BackendHandleBase {
     this.backend = backend;
   }
 
-  protected mapFromBackend(
+  protected mapIdFromBackend(
     component: Backend.Entity | Backend.Pair,
-  ): Tag | PairTag {
+  ):
+    | Tag
+    | PairTag
+    | Component<ComponentDataSchema>
+    | PairComponent<ComponentDataSchema>;
+  // protected mapFromBackend(
+  //   component: AnySingle,
+  // ):
+  //   | Wildcard
+  //   | Tag
+  //   | PairTag
+  //   | Component<ComponentDataSchema>
+  //   | PairComponent<ComponentDataSchema>
+  //   | RelationshipWildcard
+  //   | RelationshipWildcardComponent<ComponentDataSchema>
+  //   | WildcardTarget
+  //   | DoubleWildcard;
+  protected mapIdFromBackend(
+    component: Backend.Entity | Backend.Pair,
+  ):
+    | Tag
+    | PairTag
+    | Component<ComponentDataSchema>
+    | PairComponent<ComponentDataSchema> {
+    // | Wildcard
+    // | RelationshipWildcard
+    // | RelationshipWildcardComponent<ComponentDataSchema>
+    // | WildcardTarget
+    // | DoubleWildcard
     if (component instanceof Backend.Entity) {
+      if (component.hasData()) {
+        return new Component(component, this.backend);
+      }
       return new Entity(component as unknown as Backend.Entity, this.backend);
+    } else if (component instanceof Backend.Pair) {
+      if (component.hasData()) {
+        return new PairComponent(component, this.backend);
+      }
+      return new PairTag(component as unknown as Backend.Pair, this.backend);
     }
-    return new PairTag(component as unknown as Backend.Pair, this.backend);
+    throw new Error("Invalid component from backend");
   }
 
-  protected mapToBackend([first, second]: [undefined, undefined]): undefined;
   protected mapToBackend([first, second]: [
-    AnyId | Wildcard,
-    AnyComponent | Wildcard | undefined,
+    AnySingle,
+    AnyPairPart | undefined,
   ]):
     | Backend.Entity
     | Backend.Pair
     | Backend.Wildcard
-    | [Backend.Entity, Backend.Entity]
-    | [Backend.Entity, Backend.Wildcard]
-    | [Backend.Wildcard, Backend.Entity]
-    | [Backend.Wildcard, Backend.Wildcard];
-  protected mapToBackend([first, second]: [
-    AnyId | Wildcard | undefined,
-    AnyComponent | Wildcard | undefined,
-  ]) {
+    | Backend.DoubleWildcard
+    | Backend.RelationshipWildcard
+    | Backend.WildcardTarget {
     if (first === undefined) {
-      return undefined;
+      throw new Error(
+        ` cannot map to backend with undefined first argument. Received: ${JSON.stringify([first, second])}`,
+      );
     }
     if (second === undefined) {
-      return this.mapOne(first);
+      return first.data;
     }
     if (isPair(first)) {
       throw new Error("Cannot create a pair with a pair as the relationship");
     }
-    return [this.mapOne(first), this.mapOne(second)] as
-      | [Backend.Entity, Backend.Entity]
-      | [Backend.Entity, Backend.Wildcard]
-      | [Backend.Wildcard, Backend.Entity]
-      | [Backend.Wildcard, Backend.Wildcard];
-  }
-
-  private mapOne(first: AnyComponent): Backend.Entity;
-  private mapOne(first: AnyPair): Backend.Pair;
-  private mapOne(first: Wildcard | "*"): Backend.Wildcard;
-  private mapOne(
-    first: AnyId | Wildcard | "*",
-  ): Backend.Entity | Backend.Pair | Backend.Wildcard;
-  private mapOne(first: AnyComponent | AnyPair | Wildcard | "*") {
-    if (first === "*") {
-      return this.backend.wildcard;
+    if (isComponent(first) && isComponent(second)) {
+      return this.backend.pair(first.data, second.data);
     }
-    return first.data;
+    if (isComponent(first) && isWildcard(second)) {
+      return this.backend.relationshipWildcard(first.data);
+    }
+    if (isWildcard(first) && isComponent(second)) {
+      return this.backend.wildcardTarget(second.data);
+    }
+    if (isWildcard(first) && isWildcard(second)) {
+      return this.backend.doubleWildcard;
+    }
+
+    throw new Error(
+      `Invalid arguments for mapToBackend: ${JSON.stringify([first, second])}`,
+    );
   }
 }
 
@@ -133,26 +163,47 @@ export class World extends BackendHandleBase {
     return new Component<T>(this.backend.component(schema), this.backend);
   }
 
+  pair(relationship: Wildcard, target: Wildcard): DoubleWildcard;
+  pair(relationship: Entity, target: Wildcard): RelationshipWildcard;
+  pair<T extends ComponentDataSchema>(
+    relationship: Component<T>,
+    target: Wildcard,
+  ): RelationshipWildcardComponent<T>;
+  pair(relationship: Wildcard, target: Entity): WildcardTarget;
+  pair<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
+    relationship: Component<T1>,
+    target: Component<T2>,
+  ): PairComponent<T1>;
+  pair<T extends ComponentDataSchema>(
+    relationship: Entity,
+    target: Component<T>,
+  ): PairComponent<T>;
   pair<T extends ComponentDataSchema>(
     relationship: Component<T>,
     target: Entity,
   ): PairComponent<T>;
   pair(relationship: Entity, target: Entity): PairTag;
-  pair(relationship: Entity | Component<ComponentDataSchema>, target: Entity) {
-    this.backend.checkValid(relationship.data);
+  pair(first: AnyComponent | Wildcard, second: AnyComponent | Wildcard) {
+    if (isComponent(first)) {
+      this.backend.checkValid(first.data);
+    }
 
-    if (relationship instanceof Component) {
-      return new PairComponent(
-        this.backend.pair(relationship.data, target.data),
-        this.backend,
-      );
+    const backendObject = this.mapToBackend([first, second]);
+
+    if (backendObject instanceof Backend.Pair) {
+      return this.mapIdFromBackend(backendObject);
+    } else if (Backend.isDoubleWildcard(backendObject)) {
+      return { data: backendObject } as DoubleWildcard;
+    } else if (Backend.isRelationshipWildcard(backendObject)) {
+      if (backendObject.relationship.hasData()) {
+        return new RelationshipWildcardComponent(backendObject, this.backend);
+      }
+      return new RelationshipWildcard(backendObject, this.backend);
+    } else if (Backend.isWildcardTarget(backendObject)) {
+      return new WildcardTarget(backendObject, this.backend);
     }
-    if (relationship instanceof Entity) {
-      return new PairTag(
-        this.backend.pair(relationship.data, target.data),
-        this.backend,
-      );
-    }
+
+    throw new Error("Invalid arguments for pair");
   }
 
   lookupEntity(name: string) {
@@ -160,21 +211,21 @@ export class World extends BackendHandleBase {
     return entityData ? new Entity(entityData, this.backend) : undefined;
   }
 
-  removeFromAll(component: AnyId | Wildcard): void;
+  removeFromAll(component: AnySingle): void;
   removeFromAll(
     component: AnyComponent | Wildcard,
     target: AnyComponent | Wildcard,
   ): void;
-  removeFromAll(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+  removeFromAll(first: AnySingle, second?: AnyComponent | Wildcard) {
     this.backend.removeFromAll(this.mapToBackend([first, second]));
   }
 
-  destructAllWith(component: AnyId | Wildcard): void;
+  destructAllWith(component: AnySingle): void;
   destructAllWith(
     component: AnyComponent | Wildcard,
     target: AnyComponent | Wildcard,
   ): void;
-  destructAllWith(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+  destructAllWith(first: AnySingle, second?: AnyComponent | Wildcard) {
     this.backend.destructAllWith(this.mapToBackend([first, second]));
   }
 
@@ -186,10 +237,96 @@ export class World extends BackendHandleBase {
     this.backend.set(component.data, component.data, newVal);
   }
 
+  query<T extends QueryT>(queryO: T) {
+    const query = this.backend.makeQuery(queryO.data);
+    return {
+      matches: () =>
+        query
+          .archetypeWithMatches()
+          .entries()
+          .flatMap(([archetype, matches]) =>
+            matches.map((match) => [archetype, match] as const),
+          )
+          .flatMap(([archetype, match]) =>
+            archetype.entities.keys().map((entity) => ({
+              entity: new Entity(entity, this.backend),
+              match: match.map((m) => this.mapIdFromBackend(m)) as MatchType<T>,
+            })),
+          ),
+    };
+  }
+
   _debugBackendOperationIsDirty() {
     // @ts-expect-error // exposing for testing purposes, not part of public API
     return this.backend.operation.isDirty();
   }
+}
+
+type QueryT =
+  | Tag
+  | Component<ComponentDataSchema>
+  | PairTag
+  | PairComponent<ComponentDataSchema>
+  | And<unknown[]>
+  | Or<unknown[]>
+  | Wildcard;
+
+// prettier-ignore
+type MatchType<T> =
+  T extends Tag
+    ? Boxed<T>
+: T extends Component<ComponentDataSchema>
+    ? Boxed<T>
+: T extends PairTag
+    ? Boxed<T>
+: T extends PairComponent<ComponentDataSchema>
+    ? Boxed<T>
+: T extends And<infer Ts>
+    ? Flatten<{ [K in keyof Ts]: MatchType<Ts[K]> }>
+: T extends Or<infer Ts>
+    ? Boxed<{ [K in keyof Ts]: MatchType<Ts[K]> }[number]>
+: T extends Wildcard
+    ? [unknown]
+: never;
+
+type Boxed<T> = T extends unknown[] ? T : [T];
+
+type Flatten<T> = T extends []
+  ? []
+  : T extends [infer T0]
+    ? [...Flatten<T0>]
+    : T extends [infer T0, ...infer Ts]
+      ? [...Flatten<T0>, ...Flatten<Ts>]
+      : [T];
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class And<Ts extends unknown[]> {
+  _andBrand: undefined = undefined;
+
+  data: Backend.And;
+
+  constructor(data: Backend.And) {
+    this.data = data;
+  }
+}
+
+export function and<Ts extends QueryT[]>(...subs: Ts): And<Ts> {
+  return new And(Backend.and(...subs.map((c) => c.data)));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class Or<Ts extends unknown[]> {
+  _orBrand: undefined = undefined;
+
+  data: Backend.Or;
+
+  constructor(data: Backend.Or) {
+    this.data = data;
+  }
+}
+
+export function or<Ts extends QueryT[]>(...subs: Ts): Or<Ts> {
+  return new Or(Backend.or(...subs.map((c) => c.data)));
 }
 
 class EntityHandleBase extends BackendHandleBase {
@@ -206,6 +343,7 @@ class EntityHandleBase extends BackendHandleBase {
 
   setName(name: string) {
     this.backend.setName(this.data, name);
+    return this;
   }
 
   isSameAs(other: AnyId) {
@@ -222,36 +360,46 @@ class EntityHandleBase extends BackendHandleBase {
 
   clear() {
     this.backend.clear(this.data);
+    return this;
   }
 
-  has(component: AnyId | Wildcard): boolean;
+  type(): AnyId[] {
+    const archetype = this.data.archetype;
+
+    if (archetype === undefined) return [];
+
+    return [...archetype.components].map(this.mapIdFromBackend.bind(this));
+  }
+
+  has(component: AnySingle): boolean;
   has(
     relationship: AnyComponent | Wildcard,
     target: AnyComponent | Wildcard,
   ): boolean;
-  has(first: AnyId | Wildcard, second?: AnyComponent | Wildcard): boolean {
+  has(first: AnySingle, second?: AnyComponent | Wildcard): boolean {
     return this.backend.has(this.data, this.mapToBackend([first, second]));
   }
 
-  remove(id: AnyId | Wildcard): void;
+  remove(id: AnySingle): this;
   remove(
     relationship: AnyComponent | Wildcard,
     target: AnyComponent | Wildcard,
-  ): void;
-  remove(first: AnyId | Wildcard, second?: AnyComponent | Wildcard) {
+  ): this;
+  remove(first: AnySingle, second?: AnyComponent | Wildcard) {
     this.backend.remove(this.data, this.mapToBackend([first, second]));
+    return this;
   }
 
-  add(component: AnyId): void;
-  add(relationship: AnyComponent, target: AnyComponent): void;
+  add(component: AnyId): this;
+  add(relationship: AnyComponent, target: AnyComponent): this;
   add(first: AnyId, second?: AnyComponent) {
     if (second === undefined) {
       this.backend.add(this.data, first.data);
-      return;
+      return this;
     }
     if (first.data instanceof Backend.Entity) {
       this.backend.add(this.data, this.backend.pair(first.data, second.data));
-      return;
+      return this;
     }
     throw new Error("Bad arguments for add");
   }
@@ -259,34 +407,34 @@ class EntityHandleBase extends BackendHandleBase {
   set<T extends ComponentDataSchema>(
     component: Component<T>,
     newVal: InferType<T>,
-  ): void;
+  ): this;
   set<T extends ComponentDataSchema>(
     explicitRelationship: PairComponent<T>,
     newVal: InferType<T>,
-  ): void;
+  ): this;
   set<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
     component: Component<T1>,
     target: Component<T2>,
     newVal: InferType<T1>,
-  ): void;
+  ): this;
   set<T extends ComponentDataSchema>(
     component: Component<T>,
     target: Entity,
     newVal: InferType<T>,
-  ): void;
+  ): this;
   set<T extends ComponentDataSchema>(
     component: Entity,
     target: Component<T>,
     newVal: InferType<T>,
-  ): void;
+  ): this;
   set<T extends ComponentDataSchema>(
     first: Entity | Component<T> | PairComponent<T>,
     second: AnyComponent | InferType<T>,
     third?: InferType<T>,
-  ) {
+  ): this {
     if (third === undefined) {
       this.backend.set(this.data, first.data, second);
-      return;
+      return this;
     }
     if (
       first.data instanceof Backend.Entity &&
@@ -297,30 +445,25 @@ class EntityHandleBase extends BackendHandleBase {
         this.backend.pair(first.data, (second as Entity).data),
         third,
       );
-      return;
+      return this;
     }
 
     throw new Error("Invalid arguments for setData");
   }
 
-  get<T extends ComponentDataSchema>(
-    component: Component<T>,
-  ): InferType<T> | undefined;
-  get<T extends ComponentDataSchema>(
-    component: PairComponent<T>,
-  ): InferType<T> | undefined;
-  get<T extends ComponentDataSchema>(
-    component: Component<T>,
+  get<T extends AnyWithData>(component: T): InferComponentType<T> | undefined;
+  get<T extends Component<ComponentDataSchema>>(
+    component: T,
     target: Entity,
-  ): InferType<T> | undefined;
-  get<T extends ComponentDataSchema>(
+  ): InferComponentType<T> | undefined;
+  get<T extends Component<ComponentDataSchema>>(
     component: Entity,
-    target: Component<T>,
-  ): InferType<T> | undefined;
-  get<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
-    component: Component<T1>,
-    target: Component<T2>,
-  ): InferType<T1> | undefined;
+    target: T,
+  ): InferComponentType<T> | undefined;
+  get<
+    T1 extends Component<ComponentDataSchema>,
+    T2 extends Component<ComponentDataSchema>,
+  >(component: T1, target: T2): InferComponentType<T1> | undefined;
   get(
     first: AnyComponent | PairComponent<ComponentDataSchema>,
     second?: AnyComponent,
@@ -342,30 +485,43 @@ class EntityHandleBase extends BackendHandleBase {
   }
 
   components(): IteratorObject<Tag | PairTag>;
-  components(first: AnyComponent | Wildcard): IteratorObject<Tag>;
+  components(first: AnySingle): IteratorObject<Tag>;
   components(
     first: AnyComponent | Wildcard,
     second: Wildcard | AnyComponent,
   ): IteratorObject<PairTag>;
   components(
-    first?: AnyComponent | Wildcard,
+    first?: AnySingle,
     second?: Wildcard | AnyComponent,
-  ): IteratorObject<Tag | PairTag> | IteratorObject<Tag> {
+  ):
+    | IteratorObject<
+        | Tag
+        | Component<ComponentDataSchema>
+        | PairTag
+        | PairComponent<ComponentDataSchema>
+      >
+    | IteratorObject<Tag | Component<ComponentDataSchema>>
+    | IteratorObject<PairTag | PairComponent<ComponentDataSchema>> {
     if (first === undefined) {
       return this.backend
         .getComponents(this.data)
-        .map(this.mapFromBackend.bind(this));
+        .map(this.mapIdFromBackend.bind(this));
     }
 
     return this.backend
       .getComponents(this.data, this.mapToBackend([first, second]))
-      .map(this.mapFromBackend.bind(this));
+      .map(this.mapIdFromBackend.bind(this));
   }
 
   findComponent(
-    first?: AnyComponent | Wildcard,
+    first?: AnySingle,
     second?: AnyComponent | Wildcard,
-  ): Tag | PairTag | undefined {
+  ):
+    | Tag
+    | PairTag
+    | Component<ComponentDataSchema>
+    | PairComponent<ComponentDataSchema>
+    | undefined {
     const fromBackend = (() => {
       if (first === undefined) return this.backend.findComponent(this.data);
       return this.backend.findComponent(
@@ -377,21 +533,17 @@ class EntityHandleBase extends BackendHandleBase {
       return undefined;
     }
 
-    return this.mapFromBackend(fromBackend);
+    return this.mapIdFromBackend(fromBackend);
   }
 }
 
 export class Entity extends EntityHandleBase {
-  __entityHandleBrand: undefined = undefined;
+  // __entityHandleBrand: undefined = undefined;
 }
 
 export type Tag = Entity;
 
-export class Component<
-  // needed for type inference when using the handle, even if not used directly here
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  T extends ComponentDataSchema,
-> extends EntityHandleBase {
+export class Component<T extends ComponentDataSchema> extends EntityHandleBase {
   getInitializer() {
     return this.backend.initializer(this.data) as T;
   }
@@ -431,16 +583,55 @@ export class PairComponent<
 }
 
 type Wildcard = { data: Backend.Wildcard };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type DoubleWildcard = { data: Backend.DoubleWildcard };
 
-// function isWildcard(value: { data: unknown }): value is Wildcard {
-//   return Backend.isWildcard(value.data);
-// }
+class RelationshipWildcard extends BackendHandleBase {
+  _relationshipWildcardBrand: undefined = undefined;
+  data: Backend.RelationshipWildcard;
+
+  constructor(data: Backend.RelationshipWildcard, backend: Backend.Backend) {
+    super(backend);
+    this.data = data;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class RelationshipWildcardComponent<
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  T extends ComponentDataSchema,
+> extends BackendHandleBase {
+  _relationshipWildcardComponentBrand: undefined = undefined;
+  data: Backend.RelationshipWildcard;
+
+  constructor(data: Backend.RelationshipWildcard, backend: Backend.Backend) {
+    super(backend);
+    this.data = data;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class WildcardTarget extends BackendHandleBase {
+  _wildcardTargetBrand: undefined = undefined;
+  data: Backend.WildcardTarget;
+
+  constructor(data: Backend.WildcardTarget, backend: Backend.Backend) {
+    super(backend);
+    this.data = data;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function isWildcard(value: { data: unknown }): value is Wildcard {
+  return Backend.isWildcard(value.data);
+}
 
 type AnyComponent = Tag | Component<ComponentDataSchema>;
 
-// function isComponent(value: { data: unknown }): value is AnyComponent {
-//   return value.data instanceof Backend.Entity;
-// }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function isComponent(value: { data: unknown }): value is AnyComponent {
+  return value.data instanceof Backend.Entity;
+}
 
 type AnyPair = PairTag | PairComponent<ComponentDataSchema>;
 
@@ -448,13 +639,13 @@ function isPair(value: { data: unknown }): value is AnyPair {
   return value.data instanceof Backend.Pair;
 }
 
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// type AnyNoData = Entity | PairTag;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type AnyNoData = Entity | PairTag;
 
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// type AnyWithData<T extends ComponentDataSchema> =
-//   | Component<T>
-//   | PairComponent<T>;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type AnyWithData =
+  | Component<ComponentDataSchema>
+  | PairComponent<ComponentDataSchema>;
 
 type AnyId = AnyComponent | AnyPair;
 
@@ -467,6 +658,13 @@ type ComponentDataSchema = {
 };
 
 type InferType<T extends ComponentDataSchema> = ReturnType<T["parse"]>;
+
+type InferComponentType<T> =
+  T extends Component<infer U>
+    ? InferType<U>
+    : T extends PairComponent<infer U>
+      ? InferType<U>
+      : never;
 
 class Logger implements Backend.ILogger {
   private archetypeGCTracker = new ObjectGCTracker();
@@ -513,3 +711,12 @@ class Logger implements Backend.ILogger {
     this.expensiveLookups++;
   }
 }
+
+type AnySingle =
+  | AnyId
+  | Wildcard
+  | RelationshipWildcard
+  | WildcardTarget
+  | DoubleWildcard;
+
+type AnyPairPart = AnyComponent | Wildcard;

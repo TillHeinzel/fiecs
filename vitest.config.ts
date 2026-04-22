@@ -28,8 +28,13 @@ export default defineConfig({
           include: ["src/**/*.test.ts"],
           setupFiles: ["vitest.setup.ts"],
           isolate: false,
+          typecheck: {
+            enabled: true,
+            include: ["src/**/*.test.ts"],
+          },
         },
       },
     ],
   },
+  cacheDir: undefined,
 });
