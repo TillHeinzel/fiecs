@@ -18,7 +18,8 @@ export class NameMap {
     this.#nameMap.delete(name);
   }
 
-  lookup(name: string) {
+  lookup(name?: string) {
+    if (name === undefined) return undefined;
     return this.#nameMap.get(name);
   }
 }

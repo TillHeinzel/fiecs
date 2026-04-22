@@ -106,11 +106,11 @@ export function builtinTraits(backend: Backend) {
     const isInUseAsComponent = (() => {
       return (
         backend
-          .makeQuery(entity)
+          .makeSingleTermQuery(entity)
           .matchingArchetypes()
           .some(() => true) ||
         backend
-          .makeQuery([entity, backend.wildcard] as const)
+          .makeSingleTermQuery([entity, backend.wildcard] as const)
           .matchingArchetypes()
           .some(() => true)
       );
@@ -127,21 +127,21 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Trait),
+    backend.makeSingleTermQuery(Trait),
     traitCheckCallback,
   );
   addHook(
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Trait),
+    backend.makeSingleTermQuery(Trait),
     traitCheckCallback,
   );
   addHook(
     backend,
     Phase.preAdd,
     Operation.asTarget,
-    backend.makeQuery(Trait),
+    backend.makeSingleTermQuery(Trait),
     traitCheckCallback,
   );
 
@@ -151,7 +151,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Relationship),
+    backend.makeSingleTermQuery(Relationship),
     (component) => {
       throw new Error(
         `Component "${backend.getDisplayName(component)}" is purely a relationship and cannot be used as a component`,
@@ -162,7 +162,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asTarget,
-    backend.makeQuery(Relationship),
+    backend.makeSingleTermQuery(Relationship),
     (pair) => {
       if (!backend.has(pair.relationship, Trait)) {
         throw new Error(
@@ -178,7 +178,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Acyclic),
+    backend.makeSingleTermQuery(Acyclic),
     (pair, entity) => {
       const relationship = pair.relationship;
       const target = pair.target;
@@ -229,7 +229,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(RelationshipHasNoDataSpecialTag),
+    backend.makeSingleTermQuery(RelationshipHasNoDataSpecialTag),
     (component, entity) => {
       if (component !== RelationshipHasNoData) return;
       entity._relationshipHasNoData = true;
@@ -244,7 +244,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(TargetMustBeDefaultInitializable),
+    backend.makeSingleTermQuery(TargetMustBeDefaultInitializable),
     (pair) => {
       const relationship = pair.relationship;
       const target = pair.target;
@@ -267,7 +267,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery([With, backend.wildcard]),
+    backend.makeSingleTermQuery([With, backend.wildcard]),
     (pair, entity) => {
       backend
         .getComponents(pair.relationship, [With, backend.wildcard] as const)
@@ -288,7 +288,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery(WithSpecialTag),
+    backend.makeSingleTermQuery(WithSpecialTag),
     (pair) => {
       if (pair.relationship !== With) return;
 
@@ -299,8 +299,10 @@ export function builtinTraits(backend: Backend) {
         pair.target,
         (component, entity) => {
           backend
-            .makeQuery([With, component] as const)
-            .each((withedComponent) => {
+            .makeSingleTermQuery([With, component] as const)
+            .matchingArchetypes()
+            .flatMap(([archetype]) => archetype.entities)
+            .forEach((withedComponent) => {
               backend.remove(entity, withedComponent);
             });
         },
@@ -312,8 +314,10 @@ export function builtinTraits(backend: Backend) {
         pair.target,
         (pair, entity) => {
           backend
-            .makeQuery([With, pair.relationship] as const)
-            .each((withedComponent) => {
+            .makeSingleTermQuery([With, pair.relationship] as const)
+            .matchingArchetypes()
+            .flatMap(([archetype]) => archetype.entities)
+            .forEach((withedComponent) => {
               backend.remove(
                 entity,
                 backend.pair(withedComponent, pair.target),
@@ -328,7 +332,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asComponent,
-    backend.makeQuery([With, backend.wildcard]),
+    backend.makeSingleTermQuery([With, backend.wildcard]),
     (component, entity) => {
       backend
         .getComponents(component, [With, backend.wildcard] as const)
@@ -343,7 +347,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Singleton),
+    backend.makeSingleTermQuery(Singleton),
     (component, entity) => {
       if (entity !== component) {
         throw new Error(
@@ -359,7 +363,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery(Symmetric),
+    backend.makeSingleTermQuery(Symmetric),
     (pair, entity) => {
       backend.add(pair.target, backend.pair(pair.relationship, entity));
     },
@@ -368,7 +372,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.postRemove,
     Operation.asRelationship,
-    backend.makeQuery(Symmetric),
+    backend.makeSingleTermQuery(Symmetric),
     (pair, entity) => {
       backend.remove(pair.target, backend.pair(pair.relationship, entity));
     },
@@ -380,7 +384,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Target),
+    backend.makeSingleTermQuery(Target),
     (component) => {
       throw new Error(
         `Entity "${backend.getDisplayName(component)}" is marked as a Target and cannot be used as a component`,
@@ -391,7 +395,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Target),
+    backend.makeSingleTermQuery(Target),
     (pair) => {
       throw new Error(
         `Entity "${backend.getDisplayName(pair.relationship)}" is marked as a Target and cannot be used as a relationship`,
@@ -405,7 +409,7 @@ export function builtinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Exclusive),
+    backend.makeSingleTermQuery(Exclusive),
     (pair, entity) => {
       const currentPair = backend.findComponent(entity, [
         pair.relationship,

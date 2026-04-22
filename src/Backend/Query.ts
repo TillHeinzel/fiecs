@@ -18,14 +18,9 @@ export interface IQueryAble<T> {
 }
 
 export type Query<T> = {
-  forEachArchetype(
-    callback: (archetype: Archetype, match: Set<T>) => void,
-  ): void;
-
   matchingArchetypes(): IteratorObject<[Archetype, Set<T>]>;
   matches(archetype: Archetype): boolean;
   match(archetype: Archetype): Set<T>;
-  each(callback: (entity: Entity) => void): void;
 };
 
 export function mergeResults(
@@ -57,7 +52,7 @@ export class QueryBuilder {
     this.componentIndex = componentIndex;
   }
 
-  build(
+  singleTerm(
     arg:
       | Wildcard
       | Entity
@@ -67,61 +62,7 @@ export class QueryBuilder {
       | [Wildcard, Entity]
       | [Wildcard, Wildcard],
   ): Query<Entity | Pair> {
-    return this.makeTerm(this.componentIndex.getArchetypeMatcher(arg));
-  }
-
-  private makeTerm<T extends Entity | Pair>(
-    term: IQueryAble<T>,
-  ): SingleQueryTerm<T> {
-    return new SingleQueryTerm<T>(term);
-  }
-
-  private isEntity(
-    arg: Wildcard | Entity | Pair | [Entity | Wildcard, Entity | Wildcard],
-  ): arg is Entity {
-    return typeof arg === "object" && "isEntity" in arg && arg.isEntity();
-  }
-
-  private isPair(
-    arg: Wildcard | Entity | Pair | [Entity | Wildcard, Entity | Wildcard],
-  ): arg is Pair {
-    return typeof arg === "object" && "isPair" in arg && arg.isPair();
-  }
-
-  private isEntityPair(arg: unknown): arg is [Entity, Entity] {
-    return (
-      Array.isArray(arg) &&
-      arg.length === 2 &&
-      !isWildcard(arg[0]) &&
-      !isWildcard(arg[1])
-    );
-  }
-
-  private isWildcardTarget(arg: unknown): arg is [Wildcard, Entity] {
-    return (
-      Array.isArray(arg) &&
-      arg.length === 2 &&
-      isWildcard(arg[0]) &&
-      !isWildcard(arg[1])
-    );
-  }
-
-  private isRelationshipWildcard(arg: unknown): arg is [Entity, Wildcard] {
-    return (
-      Array.isArray(arg) &&
-      arg.length === 2 &&
-      !isWildcard(arg[0]) &&
-      isWildcard(arg[1])
-    );
-  }
-
-  private isDoubleWildcard(arg: unknown): arg is [Wildcard, Wildcard] {
-    return (
-      Array.isArray(arg) &&
-      arg.length === 2 &&
-      isWildcard(arg[0]) &&
-      isWildcard(arg[1])
-    );
+    return new SingleQueryTerm(this.componentIndex.getArchetypeMatcher(arg));
   }
 }
 
@@ -130,14 +71,6 @@ class SingleQueryTerm<T extends Entity | Pair> implements Query<T> {
 
   constructor(id: IQueryAble<T>) {
     this.term = id;
-  }
-
-  forEachArchetype(
-    callback: (archetype: Archetype, match: Set<T>) => void,
-  ): void {
-    this.matchingArchetypes().forEach(([archetype, match]) =>
-      callback(archetype, match as unknown as Set<T>),
-    );
   }
 
   matchingArchetypes(): IteratorObject<[Archetype, Set<T>], unknown, unknown> {
@@ -150,11 +83,5 @@ class SingleQueryTerm<T extends Entity | Pair> implements Query<T> {
 
   match(archetype: Archetype): Set<T> {
     return new Set(this.term.match(archetype));
-  }
-
-  each(callback: (entity: Entity) => void): void {
-    this.term
-      .matchingArchetypes()
-      .forEach(([archetype]) => archetype.entities.forEach(callback));
   }
 }

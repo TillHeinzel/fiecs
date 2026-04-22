@@ -36,6 +36,8 @@ export class Backend {
 
   wildcard = this.componentIndex.wildcard;
 
+  makeSingleTermQuery = this.queryBuilder.singleTerm.bind(this.queryBuilder);
+
   constructor() {
     this.archetypeGraph.addNewArchetypeCallbacks.add((newArchetype) => {
       this.componentIndex.addArchetype(newArchetype);
@@ -62,16 +64,13 @@ export class Backend {
   }
 
   entity(name?: string) {
-    if (name !== undefined) {
-      const existingEntity = this.nameMap.lookup(name);
-      if (existingEntity) {
-        return existingEntity;
-      }
-    }
+    const createEntity = () => {
+      const newEntity = this.createEntity();
+      if (name !== undefined) this.setName(newEntity, name);
+      return newEntity;
+    };
 
-    const newEntity = this.createEntity();
-    if (name !== undefined) this.setName(newEntity, name);
-    return newEntity;
+    return this.nameMap.lookup(name) ?? createEntity();
   }
 
   tag(name?: string) {
@@ -79,17 +78,16 @@ export class Backend {
   }
 
   component(parse: { parse: (val: unknown) => unknown }) {
-    const existingComponent = this.components.get(parse);
-    if (existingComponent) {
-      return existingComponent;
-    }
+    const createComponent = () => {
+      const newComponent = this.createEntity();
 
-    const newComponent = this.createEntity();
+      newComponent.addDataInitializer(parse);
+      this.components.set(parse, newComponent);
 
-    newComponent.addDataInitializer(parse);
-    this.components.set(parse, newComponent);
+      return newComponent;
+    };
 
-    return newComponent;
+    return this.components.get(parse) ?? createComponent();
   }
 
   pair(relationship: Entity, target: Entity) {
@@ -145,9 +143,13 @@ export class Backend {
     this.entities.delete(entity);
 
     mergeResults([
-      this.makeQuery(entity).matchingArchetypes(),
-      this.makeQuery([entity, this.wildcard]).matchingArchetypes(),
-      this.makeQuery([this.wildcard, entity]).matchingArchetypes(),
+      this.queryBuilder.singleTerm(entity).matchingArchetypes(),
+      this.queryBuilder
+        .singleTerm([entity, this.wildcard])
+        .matchingArchetypes(),
+      this.queryBuilder
+        .singleTerm([this.wildcard, entity])
+        .matchingArchetypes(),
     ])
       .entries()
       .forEach(([archetype, components]) => {
@@ -168,7 +170,8 @@ export class Backend {
       | [Wildcard, Entity]
       | [Wildcard, Wildcard],
   ) {
-    this.makeQuery(term)
+    this.queryBuilder
+      .singleTerm(term)
       .matchingArchetypes()
       .forEach(([archetype, components]) => {
         this.archetypeGraph.moveAllEntities(archetype, components);
@@ -186,17 +189,22 @@ export class Backend {
       | [Wildcard, Entity]
       | [Wildcard, Wildcard],
   ) {
-    const query = this.makeQuery(x);
+    const query = this.queryBuilder.singleTerm(x);
 
     const toBeDestructed = new Set<Entity>();
+    const toBeCleanedUp = new Set<Archetype>();
 
-    query.each((entity) => toBeDestructed.add(entity));
+    query.matchingArchetypes().forEach(([archetype]) => {
+      archetype.entities.forEach((entity) => toBeDestructed.add(entity));
+      toBeCleanedUp.add(archetype);
+    });
+
     for (const entity of toBeDestructed) {
       this.destruct(entity);
     }
-    query.forEachArchetype((archetype) => {
+    for (const archetype of toBeCleanedUp) {
       this.archetypeGraph.cleanup(archetype);
-    });
+    }
   }
 
   clear(entity: Entity) {
@@ -215,7 +223,7 @@ export class Backend {
       | [Wildcard, Wildcard],
   ) {
     if (!entity.isAlive()) return false;
-    return this.makeQuery(term).matches(entity.archetype);
+    return this.queryBuilder.singleTerm(term).matches(entity.archetype);
   }
 
   remove(
@@ -231,7 +239,8 @@ export class Backend {
   ) {
     if (!entity.isAlive()) return;
 
-    this.makeQuery(removeTerm)
+    this.queryBuilder
+      .singleTerm(removeTerm)
       .match(entity.archetype)
       .forEach((id) => {
         if (!this.has(entity, id)) return;
@@ -268,7 +277,7 @@ export class Backend {
     if (term === undefined) {
       return entity.archetype?.components.keys() ?? [][Symbol.iterator]();
     }
-    return this.makeQuery(term).match(entity.archetype!).keys();
+    return this.queryBuilder.singleTerm(term).match(entity.archetype!).keys();
   }
 
   findComponent(
@@ -285,7 +294,11 @@ export class Backend {
     if (term === undefined) {
       return entity.archetype?.components.keys().next().value;
     }
-    return this.makeQuery(term).match(entity.archetype!).keys().next().value;
+    return this.queryBuilder
+      .singleTerm(term)
+      .match(entity.archetype!)
+      .keys()
+      .next().value;
   }
 
   add(
@@ -362,7 +375,7 @@ export class Backend {
     query: Query<Entity | Pair>,
     callback: HookCallback,
   ) {
-    query.forEachArchetype((archetype) => {
+    query.matchingArchetypes().forEach(([archetype]) => {
       archetype.addHook(phase, operation, callback);
     });
     this.archetypeGraph.addNewArchetypeCallbacks.add((archetype) => {
@@ -380,8 +393,6 @@ export class Backend {
   ) {
     entity.addHook(phase, operation, callback);
   }
-
-  makeQuery = this.queryBuilder.build.bind(this.queryBuilder);
 }
 
 export type HookCallback = HookCallbackGeneric<Entity, Pair>;
