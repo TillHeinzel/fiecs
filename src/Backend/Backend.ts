@@ -4,6 +4,7 @@ import { Archetype, Entity, Pair } from "./BasicObjects";
 import { ComponentIndex } from "./ComponentIndex/ComponentIndex";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
+import { PairsManager } from "./PairsManager";
 import { mergeResults, Query, QueryBuilder, Wildcard } from "./Query";
 
 export class Backend {
@@ -31,7 +32,11 @@ export class Backend {
 
   private operation = new AtomicOperationManager(this.archetypeGraph);
 
-  private componentIndex = new ComponentIndex<Archetype, Entity, Pair>();
+  private pairsManager = new PairsManager<Archetype, Entity, Pair>(Pair);
+
+  private componentIndex = new ComponentIndex<Archetype, Entity, Pair>(
+    this.pairsManager,
+  );
   private queryBuilder = new QueryBuilder(this.componentIndex);
 
   wildcard = this.componentIndex.wildcard;
@@ -91,9 +96,7 @@ export class Backend {
   }
 
   pair(relationship: Entity, target: Entity) {
-    return (
-      relationship.lookupPairWith(target) ?? new Pair({ relationship, target })
-    );
+    return this.pairsManager.ensurePair(relationship, target);
   }
 
   initializer(component: Entity) {

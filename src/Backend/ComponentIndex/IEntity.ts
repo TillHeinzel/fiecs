@@ -11,8 +11,6 @@ interface IEntityIn<
 > {
   isPair(): this is Pair;
   isEntity(): this is Entity;
-
-  lookupPairWith(target: Entity): Pair | undefined;
 }
 
 export interface IEntity<

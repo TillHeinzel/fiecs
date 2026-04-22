@@ -4,4 +4,4 @@ export { LinkType } from "./Links";
 
 export type { ILogger } from "./ILogger";
 
-export * from "./IArchetype";
+export * from "./mixins";

@@ -1,6 +1,6 @@
-import { IArchetype, IEntity } from "./IArchetype";
 import { ILogger } from "./ILogger";
 import { LinkType, reverseLinkType } from "./Links";
+import { IArchetype, IEntity } from "./mixins";
 
 export class ArchetypeGraph<
   Archetype extends IArchetype<Archetype, Entity, Pair>,

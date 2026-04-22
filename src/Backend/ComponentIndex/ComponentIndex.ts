@@ -10,6 +10,16 @@ export class ComponentIndex<
 > {
   wildcard = new Wildcard<Archetype, Entity, Pair>();
 
+  pairsManager: {
+    lookupPair: (relationship: Entity, target: Entity) => Pair | undefined;
+  };
+
+  constructor(pairsManager: {
+    lookupPair: (relationship: Entity, target: Entity) => Pair | undefined;
+  }) {
+    this.pairsManager = pairsManager;
+  }
+
   addArchetype(archetype: Archetype): void {
     const components = archetype.components;
     this.wildcard.addBacklinkIfMatches(archetype);
@@ -50,7 +60,7 @@ export class ComponentIndex<
       return arg[1].getWildcardTarget();
     }
     if (this.isEntityPair(arg)) {
-      const pair = arg[0].lookupPairWith(arg[1]);
+      const pair = this.pairsManager.lookupPair(arg[0], arg[1]);
       if (pair === undefined) return new NullMatcher();
       return pair;
     }
