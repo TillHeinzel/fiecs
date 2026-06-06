@@ -20,7 +20,7 @@ export const EntityMixin =
       extends Base
       implements IEntity<Archetype, Entity, Pair>
     {
-      private pairsWhereThisIsRelationship?: Map<Entity, Pair>;
+      pairsWhereThisIsRelationship?: Map<Entity, Pair>;
 
       _addPairBacklink(pair: Pair): void {
         if (!this.pairsWhereThisIsRelationship) {

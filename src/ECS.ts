@@ -1,6 +1,6 @@
 import * as Backend from "./Backend";
 import { builtinTraits } from "./builtinTraits";
-import { ObjectGCTracker } from "./Utility/GCtesting";
+import { ObjectGCTracker } from "./Utility/GC.testutility";
 
 class BackendHandleBase {
   protected backend: Backend.Backend;

@@ -32,7 +32,9 @@ export function awaitGC(ms: number = 10) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     global.gc();
 
+    // eslint-disable-next-line
     const timer = setInterval(() => {
+      // eslint-disable-next-line
       clearInterval(timer);
       resolve();
     }, ms);

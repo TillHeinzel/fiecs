@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import * as Fiecs from "./index";
-import { awaitGC, ObjectGCTracker } from "./Utility/GCtesting";
+import { awaitGC, ObjectGCTracker } from "./Utility/GC.testutility";
 
 describe("entities, names, aliveness", () => {
   test("default constructor", () => {

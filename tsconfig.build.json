@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "build",
+    "declaration": true,
+    "plugins": [
+      { "transform": "typescript-transform-paths" },
+      // Transform paths in output .d.ts files (include this line if you output declarations files)
+      { "transform": "typescript-transform-paths", "afterDeclarations": true }
+    ]
+  },
+  "include": ["**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/tests",
+    "**/__tests__",
+    "**/*.test.ts",
+    "**/*.testutility.ts",
+    "build/**/*",
+    "dist/**/*",
+    "./*.ts"
+  ]
+}
