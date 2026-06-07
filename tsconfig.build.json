@@ -10,13 +10,14 @@
       { "transform": "typescript-transform-paths", "afterDeclarations": true }
     ]
   },
-  "include": ["**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
     "**/tests",
     "**/__tests__",
     "**/*.test.ts",
+    "**/*.spec.ts",
     "**/*.testutility.ts",
     "build/**/*",
     "dist/**/*",

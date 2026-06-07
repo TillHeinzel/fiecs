@@ -19,33 +19,39 @@ test.skip("childof hierarchy", () => {
   // create entities as children of other entities.
   const sun = world.entity("sun").set(position, { x: 0, y: 0 }).add(star);
 
-  //TODO[epic=hierarchies] - ChildOf Relationship
-  world
+  const mercury = world
     .entity("mercury")
     .set(position, { x: 10, y: 0 })
     .add(planet)
-    .set(world.builtin.ChildOf, sun);
+    .add(world.builtin.ChildOf, sun);
 
+  // TODO[epic=hierarchies] - entity.childOf()
   const venus = world
-    .entity("venus")
+    .entity("venus") //
     .set(position, { x: 20, y: 0 })
     .add(planet)
-    .set(world.builtin.ChildOf, sun);
+    .childOf(sun);
+  // equivalent to:
+  // .add(world.builtin.ChildOf, sun);
 
   const earth = world
     .entity("earth")
     .set(position, { x: 30, y: 0 })
     .add(planet)
-    .set(world.builtin.ChildOf, sun);
+    .childOf(sun);
 
   const luna = world
     .entity("luna")
     .set(position, { x: 40, y: 0 })
     .add(moon)
-    .set(world.builtin.ChildOf, earth);
+    .childOf(earth);
 
+  // TODO[epic=hierarchies] - entity.getParent()
   // Is the Moon a child of Earth?
-  expect(moon.has(world.builtin.ChildOf, earth)).toBe(true);
+  expect(luna.getParent()).toEqual(earth);
+
+  // equivalent to
+  expect(luna.has(world.builtin.ChildOf, earth)).toBe(true);
 
   //TODO[epic=hierarchies] - world.lookup(parent.child) to find children by name
   // Lookup the earth by name
@@ -82,6 +88,26 @@ test.skip("childof hierarchy", () => {
     { name: "sun::earth", pos: { x: 30, y: 0 } },
     { name: "sun::earth::luna", pos: { x: 70, y: 0 } },
   ]);
+
+  // TODO[epic=hierarchies] - world.getChildren()
+  // We can also get all the children of the world, which are all objects that are not children of anything else
+  const top_level = world.getChildren();
+  expect(Array.from(top_level)).toIncludeAllMembers([sun]);
+  expect(Array.from(top_level)).not.toIncludeAllMembers([
+    mercury,
+    venus,
+    earth,
+    luna,
+  ]);
+
+  // TODO[epic=hierarchies] - recursive cleanup
+  // Children are recursively destructed when their parent is destructed.
+  // Children are destructed before their parent
+  sun.destruct();
+  expect(earth.isAlive()).toBe(false);
+  expect(luna.isAlive()).toBe(false);
+  expect(mercury.isAlive()).toBe(false);
+  expect(venus.isAlive()).toBe(false);
 });
 
 function iterate_tree(
@@ -94,7 +120,7 @@ function iterate_tree(
 ) {
   const parent_pos = f(e, pos);
 
-  //TODO[epic=hierarchies] - parent() and getChildren()
+  //TODO[epic=hierarchies] - entity.getChildren()
   e.getChildren().forEach((child) => {
     iterate_tree(child, f, parent_pos);
   });

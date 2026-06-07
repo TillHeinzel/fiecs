@@ -5,10 +5,8 @@ import {
   Operation,
   Pair,
   Phase,
-  Query,
-} from "./Backend";
-
-// TODO[epic=???] - These should be implemented through the public interface of the ECS, through handles and shit
+  Query
+} from "./";
 
 type ComponentHookCallback = (component: Entity, entity: Entity) => void;
 type RelationshipHookCallback = (pair: Pair, entity: Entity) => void;
@@ -75,7 +73,7 @@ function addHookToEntity(
   backend.addHookToEntity(phase, operation, entity, callback as HookCallback);
 }
 
-export function builtinTraits(backend: Backend) {
+export function addBuiltinTraits(backend: Backend) {
   const Trait = backend.tag("Trait");
   backend.add(Trait, Trait);
 
@@ -408,6 +406,13 @@ export function builtinTraits(backend: Backend) {
     },
   );
 
+  const ChildOf = backend.tag("ChildOf");
+  backend.add(ChildOf, Trait);
+  backend.add(ChildOf, Relationship);
+  backend.add(ChildOf, Acyclic);
+  backend.add(ChildOf, RelationshipHasNoData);
+  backend.add(ChildOf, Exclusive);
+
   return {
     Trait,
     Relationship,
@@ -419,6 +424,7 @@ export function builtinTraits(backend: Backend) {
     Target,
     TargetMustBeDefaultInitializable,
     Exclusive,
+    ChildOf,
   };
 }
 

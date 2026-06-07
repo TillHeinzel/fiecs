@@ -1,6 +1,7 @@
 import { ArchetypeGraph, ILogger, LinkType } from "./ArchetypeGraph";
 import { AtomicOperationManager } from "./AtomicOperationManager";
 import { Archetype, Entity, Pair } from "./BasicObjects";
+import { addBuiltinTraits } from "./builtinTraits";
 import * as ComponentIndex from "./ComponentIndex";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
@@ -33,6 +34,8 @@ export class Backend {
 
   makeQuery = this.queryBuilder.build.bind(this.queryBuilder);
 
+  builtin: ReturnType<typeof addBuiltinTraits>;
+
   constructor() {
     this.archetypeGraph.addNewArchetypeCallbacks.add((newArchetype) => {
       this.componentIndex.addArchetype(newArchetype);
@@ -41,6 +44,8 @@ export class Backend {
     this.archetypeGraph.deleteArchetypeCallbacks.add((archetype) => {
       this.componentIndex.removeArchetype(archetype);
     });
+
+    this.builtin = addBuiltinTraits(this);
   }
 
   private createEntity() {
