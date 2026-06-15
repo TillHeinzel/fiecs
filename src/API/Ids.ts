@@ -1,4 +1,5 @@
-import * as Backend from "./Backend";
+import * as Backend from "#/Backend";
+
 import { AnyPair, mapIdFromBackend, mapToBackend } from "./mapWithBackend";
 import {
   DoubleWildcard,

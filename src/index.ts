@@ -1,5 +1,5 @@
-export { and, or } from "./Query";
+export { and, or } from "./API/Query";
 
-export { World } from "./World";
+export { World } from "./API/World";
 
-export { Component, Entity, PairComponent, PairTag, Tag } from "./Ids";
+export { Component, Entity, PairComponent, PairTag, Tag } from "./API/Ids";

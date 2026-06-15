@@ -1,4 +1,5 @@
-import * as Backend from "./Backend";
+import * as Backend from "#/Backend";
+
 import {
   AnyComponent,
   AnySingle,

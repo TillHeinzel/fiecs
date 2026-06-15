@@ -1,5 +1,5 @@
-import * as Backend from "./Backend";
-import { ObjectGCTracker } from "./Utility/GC.testutility";
+import * as Backend from "#/Backend";
+import { ObjectGCTracker } from "#/Utility/GC.testutility";
 
 export class Logger implements Backend.ILogger {
   private archetypeGCTracker = new ObjectGCTracker();
