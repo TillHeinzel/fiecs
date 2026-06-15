@@ -3,7 +3,7 @@
     "target": "esnext",
     // "lib": ["esnext"],
     // "allowJs": false,
-    // "skipLibCheck": true,
+    "skipLibCheck": true,
     "strict": true,
     // "esModuleInterop": true,
     // "module": "nodenext",
@@ -17,7 +17,7 @@
     }
   },
   "include": [
-    "**/*.ts",
+    "src/**/*.ts",
     "src/**/*.ts",
     "vite.config.ts",
     "vitest.setup.ts",

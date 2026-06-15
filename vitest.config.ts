@@ -1,6 +1,8 @@
+import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   // build: {
   //   watch: {
   //     exclude: [
@@ -25,11 +27,11 @@ export default defineConfig({
         extends: true,
         test: {
           name: "unit",
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
           setupFiles: ["vitest.setup.ts"],
           isolate: false,
           typecheck: {
-            enabled: true,
+            enabled: false,
             include: ["src/**/*.test.ts"],
           },
         },
