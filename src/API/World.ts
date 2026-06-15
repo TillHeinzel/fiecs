@@ -9,7 +9,7 @@ import {
   InferType,
   PairComponent,
   PairTag,
-} from "./Ids";
+} from "./EntityAndPair";
 import { Logger } from "./Logger";
 import { isComponent, mapIdFromBackend, mapToBackend } from "./mapWithBackend";
 import { Query, QueryT } from "./Query";
@@ -150,6 +150,12 @@ export class World {
   ): void {
     this.backend.add(component.data, this.builtin.Singleton.data);
     this.backend.set(component.data, component.data, newVal);
+  }
+
+  getChildren() {
+    return this.backend
+      .getRootObjects()
+      .map((entity) => new Entity(entity, this.backend));
   }
 
   query<T extends QueryT>(queryO: T) {

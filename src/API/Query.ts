@@ -7,7 +7,7 @@ import {
   PairComponent,
   PairTag,
   Tag,
-} from "./Ids";
+} from "./EntityAndPair";
 import { mapIdFromBackend } from "./mapWithBackend";
 import { Wildcard } from "./Wildcard";
 

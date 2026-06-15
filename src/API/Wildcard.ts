@@ -1,6 +1,6 @@
 import * as Backend from "#/Backend";
 
-import { ComponentDataSchema } from "./Ids";
+import { ComponentDataSchema } from "./EntityAndPair";
 
 export type Wildcard = { data: Backend.Wildcard };
 export type DoubleWildcard = { data: Backend.DoubleWildcard };

@@ -5,7 +5,7 @@ import {
   Operation,
   Pair,
   Phase,
-  Query
+  Query,
 } from "./";
 
 type ComponentHookCallback = (component: Entity, entity: Entity) => void;
@@ -412,6 +412,18 @@ export function addBuiltinTraits(backend: Backend) {
   backend.add(ChildOf, Acyclic);
   backend.add(ChildOf, RelationshipHasNoData);
   backend.add(ChildOf, Exclusive);
+  addHook(
+    backend,
+    Phase.preAdd,
+    Operation.asRelationship,
+    backend.makeQuery(ChildOf),
+    (pair, entity) => {
+      const parent = pair.target;
+      if (parent.name !== undefined && entity.name !== undefined) {
+        backend.setLookupPath(entity, parent.name + "::" + entity.name);
+      }
+    },
+  );
 
   return {
     Trait,

@@ -1,6 +1,11 @@
 import * as Backend from "#/Backend";
 
-import { AnyPair, mapIdFromBackend, mapToBackend } from "./mapWithBackend";
+import {
+  AnyPair,
+  mapEntityFromBackend,
+  mapIdFromBackend,
+  mapToBackend,
+} from "./mapWithBackend";
 import {
   DoubleWildcard,
   RelationshipWildcard,
@@ -221,32 +226,39 @@ class EntityHandleBase {
     return mapIdFromBackend(fromBackend, this.backend);
   }
 
-  childOf(parent: Entity) {
-    this.backend.add(
-      this.data,
-      this.backend.pair(this.backend.builtin.ChildOf, parent.data),
-    );
+  childOf(parent: Entity | undefined) {
+    if (parent === undefined) {
+      const existingParentData = this.backend.getParent(this.data);
+      if (existingParentData !== undefined) {
+        this.backend.remove(
+          this.data,
+          this.backend.pair(this.backend.builtin.ChildOf, existingParentData),
+        );
+      }
+    } else {
+      this.backend.add(
+        this.data,
+        this.backend.pair(this.backend.builtin.ChildOf, parent.data),
+      );
+    }
     return this;
   }
 
   getParent() {
-    const parentData = this.backend.findComponent(
-      this.data,
-      this.backend.relationshipWildcard(this.backend.builtin.ChildOf),
-    ) as Backend.Pair | undefined;
-    if (parentData === undefined) {
-      return undefined;
-    }
-    return new Entity(parentData.target, this.backend);
+    return mapEntityFromBackend(
+      this.backend.getParent(this.data),
+      this.backend,
+    );
   }
 
   getChildren() {
-    return this.backend.queryBuilder
-      .build(this.backend.pair(this.backend.builtin.ChildOf, this.data))
-      .archetypeWithMatches()
-      .keys()
-      .flatMap((archetype) => archetype.entities.keys())
+    return this.backend
+      .getChildren(this.data)
       .map((entity) => new Entity(entity, this.backend));
+  }
+
+  getPath() {
+    return this.backend.getPath(this.data);
   }
 }
 
@@ -259,6 +271,7 @@ export class Component<T extends ComponentDataSchema> extends EntityHandleBase {
     return this.backend.initializer(this.data) as T;
   }
 }
+
 class PairHandleBase {
   data: Backend.Pair;
   backend: Backend.Backend;

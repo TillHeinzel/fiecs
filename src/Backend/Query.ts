@@ -70,11 +70,14 @@ export class QueryBuilder {
     if (isOr(arg)) {
       return new OrQuery(arg.ors.map((term) => this.buildBit(term)));
     }
+    if (isNot(arg)) {
+      return new NotQuery(this.buildBit(arg.not));
+    }
     return new SingleQueryTerm(arg);
   }
 }
 
-export type QueryT = SingleTerm | And | Or;
+export type QueryT = SingleTerm | And | Or | Not;
 
 export class And {
   _andBrand: undefined = undefined;
@@ -108,6 +111,23 @@ function isOr(value: unknown): value is Or {
 
 export function or(...ors: QueryT[]): Or {
   return new Or(ors);
+}
+
+export class Not {
+  _notBrand: undefined = undefined;
+  not: QueryT;
+
+  constructor(not: QueryT) {
+    this.not = not;
+  }
+}
+
+function isNot(value: unknown): value is Not {
+  return value instanceof Not;
+}
+
+export function not(not: QueryT): Not {
+  return new Not(not);
 }
 
 class QueryImpl implements Query {
@@ -249,6 +269,32 @@ class AndQuery implements QueryBit {
       retval.set(archetype, combinations);
     }
     return retval;
+  }
+}
+
+class NotQuery implements QueryBit {
+  private subquery: QueryBit;
+
+  constructor(subquery: QueryBit) {
+    this.subquery = subquery;
+  }
+
+  matchingArchetypes(): IteratorObject<Archetype> {
+    throw new Error("NotQuery is not fully implemented yet");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  matches(archetype: Archetype): boolean {
+    throw new Error("NotQuery is not fully implemented yet");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  match(archetype: Archetype): Set<Entity | Pair> {
+    throw new Error("NotQuery is not fully implemented yet");
+  }
+
+  archetypesWithMatch(): Map<Archetype, Array<Match>> {
+    throw new Error("NotQuery is not fully implemented yet");
   }
 }
 

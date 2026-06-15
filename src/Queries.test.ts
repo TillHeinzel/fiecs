@@ -763,4 +763,6 @@ describe("Query", () => {
   //TODO[epic=advanced queries] - Change detection
   //TODO[epic=advanced queries] - Sorting
   //TODO[epic=advanced queries] - Grouping
+  //TODO[epic=advanced queries] - Transitive relationship queries
+  //TODO[epic=advanced queries] - Reflexive relationship queries
 });

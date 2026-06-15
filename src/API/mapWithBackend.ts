@@ -9,8 +9,18 @@ import {
   PairComponent,
   PairTag,
   Tag,
-} from "./Ids";
+} from "./EntityAndPair";
 import { Wildcard } from "./Wildcard";
+
+export function mapEntityFromBackend(
+  entity: Backend.Entity | undefined,
+  backend: Backend.Backend,
+): Entity | undefined {
+  if (entity === undefined) {
+    return undefined;
+  }
+  return new Entity(entity, backend);
+}
 
 export function mapIdFromBackend(
   component: Backend.Entity | Backend.Pair,

@@ -6,7 +6,7 @@ import * as ComponentIndex from "./ComponentIndex";
 import { HookCallback as HookCallbackGeneric, Operation, Phase } from "./Hooks";
 import { NameMap } from "./NameMap";
 import { PairsManager } from "./PairsManager";
-import { and, or, Query, QueryBuilder, SingleTerm } from "./Query";
+import { and, not, or, Query, QueryBuilder, SingleTerm } from "./Query";
 
 export class Backend {
   private nameMap = new NameMap();
@@ -64,13 +64,13 @@ export class Backend {
   }
 
   entity(name?: string) {
-    const createEntity = () => {
+    const createEntity = (name?: string) => {
       const newEntity = this.createEntity();
       if (name !== undefined) this.setName(newEntity, name);
       return newEntity;
     };
 
-    return this.nameMap.lookup(name) ?? createEntity();
+    return this.nameMap.lookup(name) ?? createEntity(name);
   }
 
   tag(name?: string) {
@@ -293,6 +293,44 @@ export class Backend {
 
   get(entity: Entity, id: Entity | Pair) {
     return entity.get(id);
+  }
+
+  getParent(entity: Entity) {
+    return (
+      this.findComponent(
+        entity,
+        this.relationshipWildcard(this.builtin.ChildOf),
+      ) as Pair | undefined
+    )?.target;
+  }
+
+  getChildren(entity: Entity) {
+    return this.queryBuilder
+      .build(this.pair(this.builtin.ChildOf, entity))
+      .archetypeWithMatches()
+      .keys()
+      .flatMap((archetype) => archetype.entities.keys());
+  }
+
+  getRootObjects(): IteratorObject<Entity> {
+    return this.queryBuilder
+      .build(not(this.relationshipWildcard(this.builtin.ChildOf)))
+      .archetypeWithMatches()
+      .keys()
+      .flatMap((archetype) => archetype.entities.keys());
+  }
+
+  getPath(entity: Entity): string {
+    const parent = this.getParent(entity);
+
+    const prefix = parent ? this.getPath(parent) + "::" : "";
+
+    return prefix + (entity.name ?? "-unnamed-");
+  }
+
+  // only intended to be called from the hook when adding a ChildOf relationship
+  setLookupPath(entity: Entity, path: string) {
+    this.nameMap.setLookupName(entity, path);
   }
 
   checkValid(id: Entity | Pair) {
