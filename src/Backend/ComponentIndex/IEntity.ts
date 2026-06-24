@@ -42,13 +42,12 @@ export const EntityMixin =
       extends Base
       implements IEntity<Archetype, Entity, Pair>
     {
-      backLinksComponent?: Set<Archetype> | undefined;
-
       relationshipWildcard?: RelationshipWildcard<Archetype, Entity, Pair>;
       wildcardTarget?: WildcardTarget<Archetype, Entity, Pair>;
 
+      backlinksMap?: Map<Archetype, Set<Entity | Pair>>;
       matches(archetype: Archetype): boolean {
-        return this.backLinksComponent?.has(archetype) ?? false;
+        return this.backlinksMap?.has(archetype) ?? false;
       }
 
       match(archetype: Archetype): IteratorObject<Entity> {
@@ -59,18 +58,27 @@ export const EntityMixin =
       }
 
       matchingArchetypes(): IteratorObject<Archetype> {
-        if (!this.backLinksComponent) return [][Symbol.iterator]();
-        return this.backLinksComponent.keys();
+        if (!this.backlinksMap) return [][Symbol.iterator]();
+        return this.backlinksMap.keys();
+      }
+
+      archetypesWithMatches(): Map<Archetype, Set<Entity | Pair>> {
+        return this.backlinksMap
+          ? this.backlinksMap
+          : new Map<Archetype, Set<Entity | Pair>>();
       }
 
       removeBacklink(archetype: Archetype): void {
-        this.backLinksComponent?.delete(archetype);
+        this.backlinksMap?.delete(archetype);
       }
       addBacklink(archetype: Archetype): void {
-        if (!this.backLinksComponent) {
-          this.backLinksComponent = new Set();
+        if (!this.backlinksMap) {
+          this.backlinksMap = new Map();
         }
-        this.backLinksComponent.add(archetype);
+        this.backlinksMap.set(
+          archetype,
+          new Set<Entity>([this as unknown as Entity]),
+        );
       }
 
       getRelationshipWildcard(): RelationshipWildcard<Archetype, Entity, Pair> {

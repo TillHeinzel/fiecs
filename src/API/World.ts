@@ -1,45 +1,43 @@
 import * as Backend from "#/Backend";
 
 import {
-  AnyComponent,
-  AnySingle,
+  AnyIndex,
+  AnySingleIndex,
   Component,
-  ComponentDataSchema,
   Entity,
-  InferType,
-  PairComponent,
-  PairTag,
-} from "./EntityAndPair";
-import { Logger } from "./Logger";
-import { isComponent, mapIdFromBackend, mapToBackend } from "./mapWithBackend";
-import { Query, QueryT } from "./Query";
-import {
-  DoubleWildcard,
-  RelationshipWildcard,
-  RelationshipWildcardComponent,
+  isAnySingleId,
+  isString,
+  Pair,
   Wildcard,
-  WildcardTarget,
-} from "./Wildcard";
+} from "./BasicTypes";
+import { Logger } from "./Logger";
+import {
+  mapEntityFromBackend,
+  mapImplicitPairIndexToBackend,
+  mapIndexToBackend,
+  mapRecordFromBackend,
+} from "./mapWithBackend";
+import { makeQuery } from "./Query";
+import { mapToTerms, QueryTermAble } from "./QueryTerms";
 
 export class World {
   private backend = new Backend.Backend();
 
-  builtin = (() => {
-    const traits = this.backend.builtin;
+  builtin = mapRecordFromBackend(this.backend.builtin, this.backend);
 
-    return Object.fromEntries(
-      Object.entries(traits).map(([key, value]) => [
-        key,
-        new Entity(value, this.backend),
-      ]),
-    ) as {
-      [Property in keyof typeof traits]: Entity;
-    };
-  })();
-
-  wildcard: Wildcard = { data: this.backend.wildcard };
+  wildcard = new Wildcard(this.backend.wildcard);
 
   private logger?: Logger;
+
+  lockTables() {
+    this.backend.lockTables();
+  }
+  unlockTables() {
+    this.backend.unlockTables();
+  }
+  areTablesLocked() {
+    return this.backend.tablesLocked;
+  }
 
   startStatistics() {
     this.logger = new Logger();
@@ -66,88 +64,93 @@ export class World {
     };
   }
 
-  entity(name?: string) {
+  entity(name?: string): Entity {
     return new Entity(this.backend.entity(name), this.backend);
   }
 
-  tag(name?: string) {
+  tag(name?: string): Entity {
     return new Entity(this.backend.tag(name), this.backend);
   }
 
   component<T extends ComponentDataSchema>(schema: T) {
-    return new Component<T>(this.backend.component(schema), this.backend);
+    return new Component<InferType<T>>(
+      this.backend.component(schema),
+      this.backend,
+    );
   }
 
-  pair(relationship: Wildcard, target: Wildcard): DoubleWildcard;
-  pair(relationship: Entity, target: Wildcard): RelationshipWildcard;
-  pair<T extends ComponentDataSchema>(
-    relationship: Component<T>,
-    target: Wildcard,
-  ): RelationshipWildcardComponent<T>;
-  pair(relationship: Wildcard, target: Entity): WildcardTarget;
-  pair<T1 extends ComponentDataSchema, T2 extends ComponentDataSchema>(
-    relationship: Component<T1>,
-    target: Component<T2>,
-  ): PairComponent<T1>;
-  pair<T extends ComponentDataSchema>(
-    relationship: Entity,
-    target: Component<T>,
-  ): PairComponent<T>;
-  pair<T extends ComponentDataSchema>(
-    relationship: Component<T>,
-    target: Entity,
-  ): PairComponent<T>;
-  pair(relationship: Entity, target: Entity): PairTag;
-  pair(first: AnyComponent | Wildcard, second: AnyComponent | Wildcard) {
-    if (isComponent(first)) {
-      this.backend.checkValid(first.data);
-    }
-
-    const backendObject = mapToBackend([first, second], this.backend);
-
-    if (backendObject instanceof Backend.Pair) {
-      return mapIdFromBackend(backendObject, this.backend);
-    } else if (Backend.isDoubleWildcard(backendObject)) {
-      return { data: backendObject } as DoubleWildcard;
-    } else if (Backend.isRelationshipWildcard(backendObject)) {
-      if (backendObject.relationship.hasData()) {
-        return new RelationshipWildcardComponent(backendObject, this.backend);
+  pair<First extends AnySingleIndex, Second extends AnySingleIndex>(
+    first: First,
+    second: Second,
+  ): Pair<First, Second>;
+  pair<Second extends AnySingleIndex>(
+    first: string,
+    second: Second,
+  ): Pair<Entity, Second>;
+  pair<First extends AnySingleIndex>(
+    first: First,
+    second: string,
+  ): Pair<First, Entity>;
+  pair(first: string, second: string): Pair<Entity, Entity>;
+  pair<First extends AnySingleIndex, Second extends AnySingleIndex>(
+    first: First | string,
+    second: Second | string,
+  ) {
+    const mapIt = <T extends AnySingleIndex>(
+      term: T | string,
+    ): T | Entity | undefined => {
+      if (isString(term)) {
+        const lookup = this.backend.lookupEntity(term);
+        return lookup ? new Entity(lookup, this.backend) : undefined;
       }
-      return new RelationshipWildcard(backendObject, this.backend);
-    } else if (Backend.isWildcardTarget(backendObject)) {
-      return new WildcardTarget(backendObject, this.backend);
+
+      return term;
+    };
+
+    const mappedFirst = mapIt(first);
+
+    if (!mappedFirst) {
+      throw new Error(
+        `There is no entity called ${JSON.stringify(first)} to create a pair from`,
+      );
     }
 
-    throw new Error("Invalid arguments for pair");
+    const mappedSecond = mapIt(second);
+
+    if (!mappedSecond) {
+      throw new Error(
+        `There is no entity called ${JSON.stringify(second)} to create a pair from`,
+      );
+    }
+
+    if (isAnySingleId(mappedFirst)) {
+      this.backend.checkValid(mappedFirst.data);
+    }
+    if (isAnySingleId(mappedSecond)) {
+      this.backend.checkValid(mappedSecond.data);
+    }
+
+    return new Pair(
+      mappedFirst,
+      mappedSecond,
+      mapImplicitPairIndexToBackend(mappedFirst, mappedSecond, this.backend),
+      this.backend,
+    );
   }
 
   lookupEntity(name: string) {
-    const entityData = this.backend.lookupEntity(name);
-    return entityData ? new Entity(entityData, this.backend) : undefined;
+    return mapEntityFromBackend(this.backend.lookupEntity(name), this.backend);
   }
 
-  removeFromAll(component: AnySingle): void;
-  removeFromAll(
-    component: AnyComponent | Wildcard,
-    target: AnyComponent | Wildcard,
-  ): void;
-  removeFromAll(first: AnySingle, second?: AnyComponent | Wildcard) {
-    this.backend.removeFromAll(mapToBackend([first, second], this.backend));
+  removeFromAll(term: AnyIndex) {
+    this.backend.removeFromAll(mapIndexToBackend(term, this.backend));
   }
 
-  destructAllWith(component: AnySingle): void;
-  destructAllWith(
-    component: AnyComponent | Wildcard,
-    target: AnyComponent | Wildcard,
-  ): void;
-  destructAllWith(first: AnySingle, second?: AnyComponent | Wildcard) {
-    this.backend.destructAllWith(mapToBackend([first, second], this.backend));
+  destructAllWith(term: AnyIndex) {
+    this.backend.destructAllWith(mapIndexToBackend(term, this.backend));
   }
 
-  set<T extends ComponentDataSchema>(
-    component: Component<T>,
-    newVal: InferType<T>,
-  ): void {
+  set<T>(component: Component<T>, newVal: T): void {
     this.backend.add(component.data, this.builtin.Singleton.data);
     this.backend.set(component.data, component.data, newVal);
   }
@@ -158,8 +161,37 @@ export class World {
       .map((entity) => new Entity(entity, this.backend));
   }
 
-  query<T extends QueryT>(queryO: T) {
-    return new Query<T>(this.backend.makeQuery(queryO.data), this.backend);
+  query<T extends QueryTermAble, Ts extends QueryTermAble[]>(
+    first: T,
+    ...terms: Ts
+  ) {
+    return makeQuery(
+      this.backend,
+      "noCache",
+      mapToTerms([first, ...terms] as const),
+    );
+  }
+
+  cachedQuery<T extends QueryTermAble, Ts extends QueryTermAble[]>(
+    first: T,
+    ...terms: Ts
+  ) {
+    return makeQuery(
+      this.backend,
+      "cacheAsMuchAsPossible",
+      mapToTerms([first, ...terms] as const),
+    );
+  }
+
+  forceCachedQuery<T extends QueryTermAble, Ts extends QueryTermAble[]>(
+    first: T,
+    ...terms: Ts
+  ) {
+    return makeQuery(
+      this.backend,
+      "requireCaching",
+      mapToTerms([first, ...terms] as const),
+    );
   }
 
   _debugBackendOperationIsDirty() {
@@ -167,3 +199,9 @@ export class World {
     return this.backend.operation.isDirty();
   }
 }
+
+type ComponentDataSchema = {
+  parse(val: unknown): unknown;
+};
+
+type InferType<T extends ComponentDataSchema> = ReturnType<T["parse"]>;

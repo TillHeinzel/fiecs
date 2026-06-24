@@ -32,5 +32,6 @@
     "config/src": true
   },
   "commentAnchors.workspace.excludeFiles": "**/{node_modules,.git,.idea,target,out,build,bin,obj,dist,vendor,config}/**/*",
-  "commentAnchors.workspace.matchFiles": "src/**/*"
+  "commentAnchors.workspace.matchFiles": "src/**/*",
+  "js/ts.tsdk.path": "node_modules\\typescript\\lib"
 }

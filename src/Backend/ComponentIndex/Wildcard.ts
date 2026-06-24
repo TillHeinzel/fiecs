@@ -19,12 +19,16 @@ abstract class BacklinkQueryable<
       this.backlinks.set(archetype, match);
     }
   }
+
   removeBacklink(archetype: Archetype): void {
     this.backlinks.delete(archetype);
   }
 
   matchingArchetypes(): IteratorObject<Archetype> {
     return this.backlinks.keys();
+  }
+  archetypesWithMatches(): Map<Archetype, Set<T>> {
+    return this.backlinks;
   }
   matches(archetype: Archetype): boolean {
     return this.backlinks.has(archetype);
@@ -42,12 +46,33 @@ export class Wildcard<
 > extends BacklinkQueryable<Archetype, Entity, Pair, Entity> {
   _wildcardBrand: undefined = undefined;
 
+  addBacklinkIfMatches(archetype: Archetype): void {
+    const match = new Set<Entity>(this.checkMatch(archetype));
+    if (match.size > 0) {
+      this.backlinks.set(archetype, match);
+    }
+  }
+
+  removeBacklink(archetype: Archetype): void {
+    this.backlinks.delete(archetype);
+  }
+
   protected checkMatch(
     archetype: Archetype,
   ): IteratorObject<Entity, unknown, unknown> {
     return archetype.components
       .keys()
       .filter((component) => component.isEntity());
+  }
+
+  getAllActiveComponents(): IteratorObject<Entity> {
+    return this.backlinks
+      .values()
+      .reduce((prev, current) => {
+        current.forEach((e) => prev.add(e));
+        return prev;
+      }, new Set<Entity>())
+      .keys();
   }
 }
 
@@ -73,6 +98,26 @@ export class DoubleWildcard<
     return archetype.components
       .keys()
       .filter((component) => component.isPair());
+  }
+
+  getAllActiveRelationships(): IteratorObject<Entity> {
+    return this.backlinks
+      .values()
+      .reduce((prev, current) => {
+        current.forEach((p) => prev.add(p.relationship));
+        return prev;
+      }, new Set<Entity>())
+      .keys();
+  }
+
+  getAllActiveTargets(): IteratorObject<Entity> {
+    return this.backlinks
+      .values()
+      .reduce((prev, current) => {
+        current.forEach((p) => prev.add(p.target));
+        return prev;
+      }, new Set<Entity>())
+      .keys();
   }
 }
 

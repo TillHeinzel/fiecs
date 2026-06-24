@@ -12,6 +12,7 @@
   "scripts": {
     "lint": "eslint",
     "unit": "vitest --project unit --ui --api.port 51204",
+    "debug_unit": "vitest run",
     "build": "tspc --project tsconfig.build.json && rollup -c"
   },
   "devDependencies": {

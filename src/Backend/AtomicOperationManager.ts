@@ -1,5 +1,5 @@
 import { ArchetypeGraph, LinkType } from "./ArchetypeGraph";
-import { Archetype, Entity, Pair } from "./BasicObjects";
+import { Archetype, Entity, Pair } from "./BasicTypes/BasicObjects";
 
 export class AtomicOperationManager {
   storage: ArchetypeGraph<Archetype, Entity, Pair>;

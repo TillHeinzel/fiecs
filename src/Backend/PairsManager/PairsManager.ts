@@ -14,7 +14,7 @@ export class PairsManager<
   private Pair;
 
   lookupPair(relationship: Entity, target: Entity): Pair | undefined {
-    return relationship._lookupPairWith(target);
+    return relationship._lookupPairWithTarget(target);
   }
 
   ensurePair(relationship: Entity, target: Entity): Pair {
@@ -23,7 +23,18 @@ export class PairsManager<
       return existingPair;
     }
     const newPair = new this.Pair({ relationship, target });
-    relationship._addPairBacklink(newPair);
+    relationship._addrelationshipPairBacklink(newPair);
+    target._addTargetPairBacklink(newPair);
     return newPair;
+  }
+
+  getAllRelationshipsForTarget(target: Entity): IteratorObject<[Entity, Pair]> {
+    return target._getAllRelationshipsWithThisAsTarget();
+  }
+
+  getAllTargetsForRelationship(
+    relationship: Entity,
+  ): IteratorObject<[Entity, Pair]> {
+    return relationship._getAllTargetsWithThisAsRelationship();
   }
 }

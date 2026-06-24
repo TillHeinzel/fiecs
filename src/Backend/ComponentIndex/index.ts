@@ -5,17 +5,10 @@ export { PairMixin } from "./IPair";
 export type { IPair } from "./IPair";
 
 export {
-  isRelationshipWildcard,
-  isWildcard,
-  isWildcardTarget,
-  isDoubleWildcard as isWildcardWildcard,
-  Wildcard,
-} from "./Wildcard";
-
-export { ComponentIndex } from "./ComponentIndex";
-
-export type {
+  DoubleWildcard,
   RelationshipWildcard,
+  Wildcard,
   WildcardTarget,
-  DoubleWildcard as WildcardWildcard,
 } from "./Wildcard";
+
+export { ArchetypeMatcher, ComponentIndex } from "./ComponentIndex";

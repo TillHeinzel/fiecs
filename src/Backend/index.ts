@@ -1,23 +1,21 @@
 export type { ILogger } from "./ArchetypeGraph";
 export * from "./Backend";
 export type { HookCallback } from "./Backend";
-export { Entity, Pair } from "./BasicObjects";
-export { Operation, Phase } from "./Hooks";
 export {
-  and,
-  isDoubleWildcard,
-  isRelationshipWildcard,
-  isWildcard,
-  isWildcardTarget,
-  or,
-} from "./Query";
-export type {
-  And,
+  Archetype,
+  BasicTermInput,
   DoubleWildcard,
-  Or,
-  Query,
-  QueryT,
+  Entity,
+  IndexedTerm,
+  Pair,
   RelationshipWildcard,
+  StringLookup,
+  Variable,
   Wildcard,
   WildcardTarget,
-} from "./Query";
+} from "./BasicTypes";
+export { Operation, Phase } from "./Hooks";
+
+export * from "./Query";
+
+export { ArchetypeMatcher } from "./ComponentIndex";

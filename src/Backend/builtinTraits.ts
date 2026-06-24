@@ -1,42 +1,47 @@
+import { Backend, Entity, HookCallback, Operation, Pair, Phase } from "./";
 import {
-  Backend,
-  Entity,
-  HookCallback,
-  Operation,
-  Pair,
-  Phase,
-  Query,
-} from "./";
+  DoubleWildcard,
+  RelationshipWildcard,
+  Wildcard,
+  WildcardTarget,
+} from "./BasicTypes/BasicObjects";
 
 type ComponentHookCallback = (component: Entity, entity: Entity) => void;
 type RelationshipHookCallback = (pair: Pair, entity: Entity) => void;
+
+type QueryTypeTT =
+  | Entity
+  | RelationshipWildcard
+  | Wildcard
+  | WildcardTarget
+  | DoubleWildcard;
 
 function addHook(
   backend: Backend,
   phase: Phase,
   operation: Operation.asComponent,
-  query: Query,
+  query: QueryTypeTT,
   callback: ComponentHookCallback,
 ): void;
 function addHook(
   backend: Backend,
   phase: Phase,
   operation: Operation.asRelationship,
-  query: Query,
+  query: QueryTypeTT,
   callback: RelationshipHookCallback,
 ): void;
 function addHook(
   backend: Backend,
   phase: Phase,
   operation: Operation.asTarget,
-  query: Query,
+  query: QueryTypeTT,
   callback: RelationshipHookCallback,
 ): void;
 function addHook(
   backend: Backend,
   phase: Phase,
   operation: Operation,
-  query: Query,
+  query: QueryTypeTT,
   callback: ComponentHookCallback | RelationshipHookCallback,
 ) {
   backend.addHook(phase, operation, query, callback as HookCallback);
@@ -80,12 +85,9 @@ export function addBuiltinTraits(backend: Backend) {
   const traitCheckCallback = (pair: Entity | Pair, entity: Entity) => {
     const isInUseAsComponent = (() => {
       return (
+        entity.matchingArchetypes().some(() => true) ||
         backend
-          .makeQuery(entity)
-          .matchingArchetypes()
-          .some(() => true) ||
-        backend
-          .makeQuery(backend.relationshipWildcard(entity))
+          .relationshipWildcard(entity)
           .matchingArchetypes()
           .some(() => true)
       );
@@ -102,23 +104,17 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Trait),
+    Trait,
     traitCheckCallback,
   );
   addHook(
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Trait),
+    Trait,
     traitCheckCallback,
   );
-  addHook(
-    backend,
-    Phase.preAdd,
-    Operation.asTarget,
-    backend.makeQuery(Trait),
-    traitCheckCallback,
-  );
+  addHook(backend, Phase.preAdd, Operation.asTarget, Trait, traitCheckCallback);
 
   const Relationship = backend.tag("Relationship");
   backend.add(Relationship, Trait);
@@ -126,26 +122,20 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Relationship),
+    Relationship,
     (component) => {
       throw new Error(
         `Component "${backend.getDisplayName(component)}" is purely a relationship and cannot be used as a component`,
       );
     },
   );
-  addHook(
-    backend,
-    Phase.preAdd,
-    Operation.asTarget,
-    backend.makeQuery(Relationship),
-    (pair) => {
-      if (!backend.has(pair.relationship, Trait)) {
-        throw new Error(
-          `Component "${backend.getDisplayName(pair.target)}" is purely a relationship and cannot be used as a target of a relationship`,
-        );
-      }
-    },
-  );
+  addHook(backend, Phase.preAdd, Operation.asTarget, Relationship, (pair) => {
+    if (!backend.has(pair.relationship, Trait)) {
+      throw new Error(
+        `Component "${backend.getDisplayName(pair.target)}" is purely a relationship and cannot be used as a target of a relationship`,
+      );
+    }
+  });
 
   const Acyclic = backend.tag("Acyclic");
   backend.add(Acyclic, Trait);
@@ -153,7 +143,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Acyclic),
+    Acyclic,
     (pair, entity) => {
       const relationship = pair.relationship;
       const target = pair.target;
@@ -204,7 +194,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(RelationshipHasNoDataSpecialTag),
+    RelationshipHasNoDataSpecialTag,
     (component, entity) => {
       if (component !== RelationshipHasNoData) return;
       entity._relationshipHasNoData = true;
@@ -219,7 +209,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(TargetMustBeDefaultInitializable),
+    TargetMustBeDefaultInitializable,
     (pair) => {
       const relationship = pair.relationship;
       const target = pair.target;
@@ -242,7 +232,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery(backend.relationshipWildcard(With)),
+    backend.relationshipWildcard(With),
     (pair, entity) => {
       backend
         .getComponents(pair.relationship, backend.relationshipWildcard(With))
@@ -263,7 +253,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery(WithSpecialTag),
+    WithSpecialTag,
     (pair) => {
       if (pair.relationship !== With) return;
 
@@ -274,7 +264,7 @@ export function addBuiltinTraits(backend: Backend) {
         pair.target,
         (component, entity) => {
           backend
-            .makeQuery(backend.pair(With, component))
+            .pair(With, component)
             .matchingArchetypes()
             .flatMap((archetype) => archetype.entities)
             .forEach((withedComponent) => {
@@ -289,7 +279,7 @@ export function addBuiltinTraits(backend: Backend) {
         pair.target,
         (pair, entity) => {
           backend
-            .makeQuery(backend.pair(With, pair.relationship))
+            .pair(With, pair.relationship)
             .matchingArchetypes()
             .flatMap((archetype) => archetype.entities)
             .forEach((withedComponent) => {
@@ -307,7 +297,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asComponent,
-    backend.makeQuery(backend.relationshipWildcard(With)),
+    backend.relationshipWildcard(With),
     (component, entity) => {
       backend
         .getComponents(component, backend.relationshipWildcard(With))
@@ -322,7 +312,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asComponent,
-    backend.makeQuery(Singleton),
+    Singleton,
     (component, entity) => {
       if (entity !== component) {
         throw new Error(
@@ -338,7 +328,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.postAdd,
     Operation.asRelationship,
-    backend.makeQuery(Symmetric),
+    Symmetric,
     (pair, entity) => {
       backend.add(pair.target, backend.pair(pair.relationship, entity));
     },
@@ -347,7 +337,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.postRemove,
     Operation.asRelationship,
-    backend.makeQuery(Symmetric),
+    Symmetric,
     (pair, entity) => {
       backend.remove(pair.target, backend.pair(pair.relationship, entity));
     },
@@ -355,28 +345,16 @@ export function addBuiltinTraits(backend: Backend) {
 
   const Target = backend.tag("Target");
   backend.add(Target, Trait);
-  addHook(
-    backend,
-    Phase.preAdd,
-    Operation.asComponent,
-    backend.makeQuery(Target),
-    (component) => {
-      throw new Error(
-        `Entity "${backend.getDisplayName(component)}" is marked as a Target and cannot be used as a component`,
-      );
-    },
-  );
-  addHook(
-    backend,
-    Phase.preAdd,
-    Operation.asRelationship,
-    backend.makeQuery(Target),
-    (pair) => {
-      throw new Error(
-        `Entity "${backend.getDisplayName(pair.relationship)}" is marked as a Target and cannot be used as a relationship`,
-      );
-    },
-  );
+  addHook(backend, Phase.preAdd, Operation.asComponent, Target, (component) => {
+    throw new Error(
+      `Entity "${backend.getDisplayName(component)}" is marked as a Target and cannot be used as a component`,
+    );
+  });
+  addHook(backend, Phase.preAdd, Operation.asRelationship, Target, (pair) => {
+    throw new Error(
+      `Entity "${backend.getDisplayName(pair.relationship)}" is marked as a Target and cannot be used as a relationship`,
+    );
+  });
 
   const Exclusive = backend.tag("Exclusive");
   backend.add(Exclusive, Trait);
@@ -384,7 +362,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(Exclusive),
+    Exclusive,
     (pair, entity) => {
       const currentPair = backend.findComponent(
         entity,
@@ -416,7 +394,7 @@ export function addBuiltinTraits(backend: Backend) {
     backend,
     Phase.preAdd,
     Operation.asRelationship,
-    backend.makeQuery(ChildOf),
+    ChildOf,
     (pair, entity) => {
       const parent = pair.target;
       if (parent.name !== undefined && entity.name !== undefined) {

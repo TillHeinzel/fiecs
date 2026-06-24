@@ -12,7 +12,7 @@ interface IPairIn<
   relationship: Entity;
   target: Entity;
 
-  isPair(): this is Pair;
+  isPair(): this is IPairIn<Archetype, Entity, Pair>;
   isEntity(): this is Entity;
 }
 
@@ -39,9 +39,9 @@ export const PairMixin =
       extends Base
       implements IPair<Archetype, Entity, Pair>
     {
-      backLinksComponent?: Set<Archetype>;
+      backlinksMap?: Map<Archetype, Set<Entity | Pair>>;
       matches(archetype: Archetype): boolean {
-        return this.backLinksComponent?.has(archetype) ?? false;
+        return this.backlinksMap?.has(archetype) ?? false;
       }
 
       match(archetype: Archetype): IteratorObject<Pair> {
@@ -52,20 +52,26 @@ export const PairMixin =
       }
 
       matchingArchetypes(): IteratorObject<Archetype> {
-        if (!this.backLinksComponent) return [][Symbol.iterator]();
-        return this.backLinksComponent.keys();
+        if (!this.backlinksMap) return [][Symbol.iterator]();
+        return this.backlinksMap.keys();
+      }
+
+      archetypesWithMatches(): Map<Archetype, Set<Entity | Pair>> {
+        return this.backlinksMap
+          ? this.backlinksMap
+          : new Map<Archetype, Set<Entity | Pair>>();
       }
 
       removeBacklink(archetype: Archetype): void {
-        this.backLinksComponent?.delete(archetype);
+        this.backlinksMap?.delete(archetype);
         this.relationship.getRelationshipWildcard().removeBacklink(archetype);
         this.target.getWildcardTarget().removeBacklink(archetype);
       }
       addBacklink(archetype: Archetype): void {
-        if (!this.backLinksComponent) {
-          this.backLinksComponent = new Set();
+        if (!this.backlinksMap) {
+          this.backlinksMap = new Map();
         }
-        this.backLinksComponent.add(archetype);
+        this.backlinksMap.set(archetype, new Set([this as unknown as Pair]));
         this.relationship
           .getRelationshipWildcard()
           .addBacklinkIfMatches(archetype);

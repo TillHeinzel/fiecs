@@ -9,7 +9,10 @@ export class ArchetypeGraph<
 > {
   constructor(
     makeArchetype: {
-      new (props: { components: ReadonlySet<Entity | Pair> }): Archetype;
+      new (props: {
+        components: ReadonlySet<Entity | Pair>;
+        index: number;
+      }): Archetype;
     },
     makeEntity: { new (o: object): Entity },
     query: (
@@ -29,8 +32,17 @@ export class ArchetypeGraph<
   makeEntity;
   query: (components: ReadonlySet<Entity | Pair>) => IteratorObject<Archetype>;
 
+  private allArchetypes = new Set<Archetype>();
+
+  private archetypeIndexTracker = 0;
+
   private newArchetype(components: ReadonlySet<Entity | Pair>) {
-    return new this.makeArchetype({ components });
+    const newArchetype = new this.makeArchetype({
+      components,
+      index: this.archetypeIndexTracker++,
+    });
+    this.allArchetypes.add(newArchetype);
+    return newArchetype;
   }
 
   private newEntity() {
@@ -47,6 +59,10 @@ export class ArchetypeGraph<
     return (
       this.#lookupArchetype(components) ?? this.#addNewArchetype(components)
     );
+  }
+
+  getAllArchetypes(): IteratorObject<Archetype> {
+    return this.allArchetypes.keys();
   }
 
   createEntity() {
@@ -183,6 +199,8 @@ export class ArchetypeGraph<
 
     archetype.links.detachLinks(this.logger);
     this.deleteArchetypeCallbacks.forEach((callback) => callback(archetype));
+
+    this.allArchetypes.delete(archetype);
 
     this.logger.deleteArchetype(archetype);
   }

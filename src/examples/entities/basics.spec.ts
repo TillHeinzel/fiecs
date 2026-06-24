@@ -49,7 +49,7 @@ test("basics", () => {
   const entitiesWithPosition = Array.from(
     world
       .query(position)
-      .matches()
+      .getIteratorWithEntity()
       .map(({ entity }) => [entity, entity.get(position)] as const),
   );
 

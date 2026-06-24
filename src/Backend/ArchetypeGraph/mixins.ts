@@ -8,6 +8,7 @@ interface IArchetypeIn<
   Pair,
 > {
   readonly components: ReadonlySet<Entity | Pair>;
+  readonly index: number;
 }
 
 export interface IArchetype<

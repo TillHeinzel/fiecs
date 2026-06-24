@@ -48,4 +48,6 @@ export interface ArchetypeMatcher<
   matches(archetype: Archetype): boolean;
   match(archetype: Archetype): IteratorObject<T>;
   matchingArchetypes(): IteratorObject<Archetype>;
+
+  archetypesWithMatches(): Map<Archetype, Set<Entity | Pair>>;
 }
